@@ -1,0 +1,106 @@
+CCNLP Lab Assignment 02
+Name: Arnav Karwa
+Batch: C2
+Roll no: 32
+PRN: 1032232194
+
+Lab 2: NLTK based Text Pre-processing
+
+Code file used:
+- assignment1_2.ipynb
+
+Pre-processing operations completed in code:
+- Stopword removal
+- Tokenization (word and sentence)
+- Stemming
+- Lemmatization
+- POS tagging
+- Punctuation removal
+- Lowercasing
+- split()
+
+Representative code used:
+from nltk.corpus import brown, reuters, stopwords
+from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+from nltk import pos_tag
+import string
+
+brown_sample = ' '.join(brown.words()[:300])
+reuters_sample = ' '.join(reuters.words()[:300])
+
+stop_words = set(stopwords.words('english'))
+brown_word_tokens = word_tokenize(brown_sample)
+reuters_word_tokens = word_tokenize(reuters_sample)
+
+stemmer = PorterStemmer()
+lemmatizer = WordNetLemmatizer()
+
+brown_pos = pos_tag(brown_word_tokens[:30])
+reuters_pos = pos_tag(reuters_word_tokens[:30])
+
+brown_no_punct = [w for w in brown_word_tokens if w not in string.punctuation]
+brown_lower = [w.lower() for w in brown_word_tokens[:30]]
+brown_split = brown_sample.split()
+
+Inference:
+- Pipeline demonstrates practical preprocessing stages over two corpora (Brown, Reuters).
+- Clear effect observed in normalized tokens, cleaned text, and grammatical tags.
+
+Part A: Three Additional NLTK Functions (beyond basic slide tasks)
+
+1) nltk.FreqDist()
+Code:
+from nltk import FreqDist
+brown_freq = FreqDist([w.lower() for w in brown_word_tokens if w.isalpha()])
+print(brown_freq.most_common(10))
+Inference:
+- Gives frequency-based lexical profile and top repeated tokens.
+
+2) nltk.ngrams()
+Code:
+from nltk import ngrams
+brown_bigrams = list(ngrams([w.lower() for w in brown_word_tokens if w.isalpha()], 2))
+print(brown_bigrams[:10])
+Inference:
+- Captures local word-sequence patterns for phrase-level analysis.
+
+3) nltk.collocations.BigramCollocationFinder
+Code:
+from nltk import collocations
+measures = collocations.BigramAssocMeasures()
+finder = collocations.BigramCollocationFinder.from_words([w.lower() for w in brown_word_tokens if w.isalpha()])
+finder.apply_freq_filter(2)
+print(finder.nbest(measures.pmi, 10))
+Inference:
+- Identifies statistically meaningful word pairings (collocations), not just frequent pairs.
+
+Part B: Lexical Resource Explored
+
+Resource Name: WordNet (nltk.corpus.wordnet)
+
+Detailed description:
+- WordNet organizes English words into synsets (sets of cognitive synonyms).
+- Supports semantic relations such as synonyms, antonyms, hypernyms, and hyponyms.
+- Enables lexical-semantic analysis and similarity scoring (Wu-Palmer similarity).
+
+Representative code used:
+from nltk.corpus import wordnet as wn
+synsets = wn.synsets('bank')
+print(synsets[0].definition())
+print([lemma.name() for lemma in synsets[0].lemmas()])
+
+Five visualizations implemented in notebook (Task 10: Wordnet):
+1) Number of synsets per word (bar chart)
+2) POS distribution for selected words (bar chart)
+3) Synonyms vs antonyms count per word (grouped bar chart)
+4) Hypernym depth per word (bar chart)
+5) Semantic similarity matrix using Wu-Palmer similarity (heatmap)
+
+Inference from WordNet visual analysis:
+- Polysemy varies strongly by word (e.g., high synset counts for ambiguous words).
+- Semantic similarity matrix captures closeness between selected lexical items.
+- Hypernym depth reflects abstraction level differences across words.
+
+Code file shared:
+- assignment1_2.ipynb (contains complete preprocessing + WordNet code and visual outputs)

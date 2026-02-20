@@ -1,0 +1,129 @@
+CCNLP Lab Assignment 03
+Name: Arnav Karwa
+Batch: C2
+Roll no: 32
+PRN: 1032232194
+
+Lab 3: BoW, N-gram, Gensim, spaCy, Word2Vec
+
+Code file used:
+- assignment3.ipynb
+
+1) Bag of Words (BoW)
+Implemented:
+- Manual BoW using vocabulary + count vectors
+- Gensim BoW using dictionary + doc2bow
+
+Representative code:
+doc1 = "cats and dogs are not allowed"
+doc2 = "cats and dogs are antagonistic"
+doc1_tokens = doc1.lower().split()
+doc2_tokens = doc2.lower().split()
+vocabulary = sorted(set(doc1_tokens + doc2_tokens))
+
+def create_bow_vector(tokens, vocab):
+    vector = [0] * len(vocab)
+    for token in tokens:
+        if token in vocab:
+            idx = vocab.index(token)
+            vector[idx] += 1
+    return vector
+
+Inference:
+- BoW represents document content as frequencies and ignores global word order.
+
+2) Dictionary + Doc2Bow (Gensim)
+Implemented:
+- corpora.Dictionary(tokenized_docs)
+- dictionary.doc2bow(doc_tokens)
+
+Representative code:
+from gensim import corpora
+tokenized_docs = [doc1_tokens, doc2_tokens]
+dictionary = corpora.Dictionary(tokenized_docs)
+bow_doc1 = dictionary.doc2bow(doc1_tokens)
+bow_doc2 = dictionary.doc2bow(doc2_tokens)
+
+Inference:
+- Dictionary maps tokens to IDs; doc2bow gives sparse (word_id, count) representation.
+
+3) Three+ Gensim functions demonstrated in notebook
+1. dictionary.doc2bow()
+2. dictionary.doc2idx()
+3. dictionary.add_documents()
+4. word2vec_model.wv.similarity()
+5. word2vec_model.wv.most_similar()
+
+Representative code:
+doc1_ids = dictionary.doc2idx(doc1_tokens)
+dictionary_updated = corpora.Dictionary(tokenized_docs)
+dictionary_updated.add_documents([["cats", "and", "birds", "coexist"]])
+
+Inference:
+- Functions cover sparse encoding, token-ID mapping, dictionary update, and embedding-space similarity queries.
+
+4) Three spaCy functions demonstrated
+1. Tokenization via nlp() and token.text
+2. Lemmatization via token.lemma_
+3. POS tagging via token.pos_
+
+Representative code:
+import spacy
+nlp = spacy.load("en_core_web_sm")
+doc1_spacy = nlp(doc1)
+tokens = [token.text.lower() for token in doc1_spacy if not token.is_punct]
+lemmas = [token.lemma_ for token in doc1_spacy if not token.is_punct]
+pos_tags = [(token.text, token.pos_) for token in doc1_spacy if not token.is_punct]
+
+Inference:
+- spaCy pipeline provides linguistic annotation for richer feature extraction than plain split().
+
+5) Word2Vec and Doc2Vec
+Implemented:
+- Word2Vec for dense word embeddings
+- Doc2Vec for document embeddings + cosine similarity
+
+Representative code:
+from gensim.models import Word2Vec
+word2vec_model = Word2Vec(sentences=[doc1_tokens, doc2_tokens], vector_size=10, window=2, min_count=1, sg=0)
+
+from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+tagged_docs = [TaggedDocument(words=doc1_tokens, tags=['DOC1']), TaggedDocument(words=doc2_tokens, tags=['DOC2'])]
+doc2vec_model = Doc2Vec(tagged_docs, vector_size=10, min_count=1, epochs=40)
+
+Inference:
+- Word2Vec captures word-level semantic geometry.
+- Doc2Vec captures document-level representation and enables document similarity.
+
+6) N-gram with probabilities
+Implemented:
+- Bigrams and trigrams generation
+- Conditional probability model P(next_word | context)
+- Next-word prediction based on highest probability
+
+Representative code:
+def generate_ngrams(tokens, n):
+    return [tuple(tokens[i:i+n]) for i in range(len(tokens)-n+1)]
+
+def build_next_word_model(documents, n):
+    next_word_model = defaultdict(lambda: defaultdict(int))
+    for doc in documents:
+        tokens = doc.lower().split()
+        for ngram in generate_ngrams(tokens, n):
+            context = ngram[:-1]
+            next_word = ngram[-1]
+            next_word_model[context][next_word] += 1
+    return next_word_model
+
+def build_next_word_probabilities(next_word_model):
+    prob_model = {}
+    for context, next_words in next_word_model.items():
+        total = sum(next_words.values())
+        prob_model[context] = {word: count / total for word, count in next_words.items()}
+    return prob_model
+
+Inference:
+- N-gram probabilities model local language behavior and allow simple probabilistic next-token prediction.
+
+Overall Lab 3 inference:
+- The notebook covers BoW, dictionary, doc2bow, required Gensim/spaCy functions, Word2Vec/Doc2Vec, and n-gram probability-based prediction in one consistent workflow.

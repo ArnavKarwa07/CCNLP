@@ -1,0 +1,89 @@
+CCNLP Lab Assignment 01
+Name: Arnav Karwa
+Batch: C2
+Roll no: 32
+PRN: 1032232194
+
+LAB 1: Exploration of NLTK
+
+Code file used:
+- assignment1_2.ipynb
+
+1) NLTK Functions/Methods Explored (with code + inference)
+
+A. Corpus listing and access
+Function(s): nltk.data.find("corpora"), os.listdir(), gutenberg.fileids(), gutenberg.words()
+Code:
+import os, nltk
+corpora_dir = nltk.data.find("corpora")
+all_corpora = os.listdir(corpora_dir)
+from nltk.corpus import gutenberg
+print(gutenberg.fileids())
+hamlet = gutenberg.words('shakespeare-hamlet.txt')
+print(len(hamlet), hamlet[1:10])
+Inference:
+- Verified installed corpora and explored available Gutenberg files.
+- Retrieved token stream from Hamlet and observed corpus-scale tokenization.
+
+B. Tokenization and sentence splitting
+Function(s): nltk.word_tokenize(), nltk.sent_tokenize()
+Code:
+sentence = "The quick brown fox jumps over the lazy dog. NLTK is a powerful library for natural language processing."
+tokens = nltk.word_tokenize(sentence)
+sens = nltk.sent_tokenize(sentence)
+print(tokens)
+print(sens)
+Inference:
+- word_tokenize splits into word-level tokens.
+- sent_tokenize separates the paragraph into sentence units.
+
+C. POS tagging
+Function(s): nltk.pos_tag(), nltk.word_tokenize()
+Code:
+text = "The striped bats are hanging on their feet for best"
+print(nltk.pos_tag(nltk.word_tokenize(text)))
+Inference:
+- POS tags show grammatical role per token and support later syntactic analysis.
+
+2) 3 Indian Corpora/Resources Explored (with code + inference)
+
+A. Indian Corpus (resource 1)
+Function(s): indian.fileids(), indian.words(file_id), indian.tagged_words(file_id)
+Code:
+from nltk.corpus import indian
+indian_files = indian.fileids()
+print(indian_files[:12])
+selected_indian = [fid for fid in indian_files if any(lang in fid.lower() for lang in ['hindi','marathi','telugu'])][:3]
+if len(selected_indian) < 3:
+	selected_indian = indian_files[:3]
+for fid in selected_indian:
+	words_list = indian.words(fid)
+	tagged_list = indian.tagged_words(fid)
+	print(fid, len(words_list), len(set(words_list)))
+	print(words_list[:20])
+	print(tagged_list[:15])
+Inference:
+- Explored Indian-language tagged data directly from NLTK.
+- Observed token counts, vocabulary size, and POS-tagged structure.
+
+B. Hindi file from Indian corpus (resource 2)
+Function(s): indian.words(), indian.tagged_words()
+Code (representative from selected_indian loop):
+fid = selected_indian[0]
+print(indian.words(fid)[:20])
+print(indian.tagged_words(fid)[:15])
+Inference:
+- Hindi data shows script-specific tokenization and label-rich tagged tokens.
+
+C. Marathi/Telugu file from Indian corpus (resource 3)
+Function(s): indian.words(), indian.tagged_words()
+Code (representative from selected_indian loop):
+fid = selected_indian[1]
+print(indian.words(fid)[:20])
+print(indian.tagged_words(fid)[:15])
+Inference:
+- Comparative exploration across Indian-language files helps observe lexical and tag variation.
+
+Overall inference for Lab 1:
+- NLTK corpus APIs make it easy to inspect corpus structure, retrieve tokens, and run linguistic analysis.
+- Indian corpus exploration in the notebook demonstrates multilingual corpus access and POS-tagged analysis.
