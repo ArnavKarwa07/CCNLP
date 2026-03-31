@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+venv/
+env/
+.idea/
+.streamlit/
+.DS_Store
+*.log
+*.wav
