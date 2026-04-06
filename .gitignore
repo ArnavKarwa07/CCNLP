@@ -3,7 +3,9 @@ __pycache__
 *.pyo
 *.pyd
 venv/
+.venv
 env/
+.env
 .idea/
 .streamlit/
 .DS_Store
