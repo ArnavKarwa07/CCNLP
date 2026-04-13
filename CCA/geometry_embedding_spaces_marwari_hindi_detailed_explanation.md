@@ -1,469 +1,167 @@
-# Detailed Walkthrough: Geometry of Embedding Spaces for Multilingual Low-Resource NLP (Marwari-Hindi-English)
+# Geometry of Embedding Spaces for Multilingual Low-Resource NLP: A Comparative Study of Marwari, Hindi, and English
 
-## Quick Cheat Sheet: How to Read Results Fast
+**Abstract**
 
-Use this section when you need a 1-2 minute interpretation of notebook outputs.
+This report studies how geometric assumptions influence multilingual word embedding behavior for a low-resource language setting centered on Marwari, with Hindi and English used as comparison languages. The work combines corpus preparation, skip-gram-style representation learning, orthogonal multilingual alignment, and geometric diagnostics in Euclidean, spherical, and hyperbolic views. The main objective is to determine whether geometry-aware analysis improves interpretation of cross-lingual neighborhood structure and retrieval behavior. The experiments indicate that alignment quality, anisotropy, and retrieval performance are all sensitive to the chosen metric, while normalized and curvature-inspired views expose structural properties that are less visible in standard Euclidean analysis. The report is written as an IEEE-style technical paper and is intended to document the methods, measurements, and interpretation pipeline used in the accompanying notebook.
 
-1. Start with the alignment quality table and bar plot:
+**Index Terms**
 
-- Look for `acc_after > acc_before` across metrics.
-- If hyperbolic has values and meaningful gain, the geometric comparison is functioning correctly.
+Word embeddings, multilingual alignment, low-resource NLP, Euclidean geometry, spherical geometry, hyperbolic geometry, isotropy, anisotropy, Procrustes alignment, Marwari, Hindi, English.
 
-2. Check singular value spectrum:
+## I. Introduction
 
-- If one line is missing, it means overlap or style conflict; in this notebook Marwari is forced to be visually distinct.
-- A steeper drop usually indicates stronger anisotropy (few dominant directions).
+Embedding spaces are often treated as ordinary vector spaces, yet the geometry imposed on those vectors strongly affects how semantic relations are interpreted. In multilingual settings, this issue becomes more pronounced because the same conceptual neighborhood may appear differently across languages, especially when one language is low-resource and the available corpus is limited. The present study examines this problem using Marwari as the primary reference language and Hindi and English as comparison languages.
 
-3. Check anisotropy/isotropy table:
+The report addresses three questions. First, how coherent are the learned monolingual spaces under standard distributional training? Second, how does the geometry of the evaluation space alter the interpretation of semantic neighborhoods? Third, does orthogonal alignment improve cross-lingual retrieval in a measurable way? To answer these questions, the notebook trains word embeddings, compares several distance functions, evaluates isotropy and anisotropy, and measures retrieval performance before and after alignment.
 
-- `anisotropy_ratio` higher means more collapse.
-- `isotropy_index` higher means more balanced directional spread.
-- `delta_*_vs_marwari` tells whether Hindi/English/aligned Marwari are better or worse than Marwari baseline.
+The contribution of the work is methodological rather than architectural. The notebook does not introduce a new embedding model; instead, it provides a structured framework for comparing geometric views of multilingual embeddings and for interpreting their behavior using both visual and quantitative evidence.
 
-4. Read geometry comparison charts in order:
+**The pipeline below summarizes the entire experimental workflow:**
 
-- Euclidean PCA and t-SNE: global and local neighborhood structure.
-- Spherical PCA: direction-only geometry after norm removal.
-- Hyperbolic PCA: hierarchy-friendly geometry behavior.
+![Multilingual analysis pipeline](figures/ieee_pipeline.png)
 
-5. Interpret Marwari->Hindi heatmaps:
+_Fig. 1. End-to-end workflow from corpora through preprocessing, embedding training, alignment, and geometric analysis._
 
-- Before: baseline cross-lingual similarity.
-- After: alignment effect.
-- Gain: direct improvement map (positive regions are where alignment helped).
+## II. Background and Related Concepts
 
-6. Final sanity checks:
+A word embedding maps a token to a dense vector so that distributionally similar words are represented near one another [1]. In a flat Euclidean setting, semantic distance is typically approximated by the L2 norm. However, many linguistic comparisons depend more strongly on direction than on magnitude, which motivates cosine similarity and angular distance. When vectors are normalized, the embedding space can be viewed on the surface of a sphere, where angular separation becomes the relevant measure.
 
-- Monolingual nearest neighbors should look semantically coherent.
-- Cross-lingual nearest neighbors should improve after alignment.
-- The same trends should appear in both qualitative examples and retrieval@1 metrics.
+Hyperbolic geometry provides a different perspective. Because hyperbolic space expands rapidly near the boundary, it is often used to represent hierarchical or tree-like relationships [4]. This makes it useful as a diagnostic lens for language data that may contain nested semantic structures or taxonomic groupings [6].
 
-## 1) What this project is trying to do
+A separate but equally important issue is anisotropy. Many embedding models concentrate variance into a small number of dominant directions, which reduces the effective expressive power of the space [5]. Isotropy analysis is therefore useful for determining whether the learned vectors occupy the space uniformly or collapse into a narrow cone.
 
-This notebook is a research-style prototype that studies one central question:
+## IV. Data and Preprocessing
 
-How does geometry (Euclidean, spherical, hyperbolic) affect multilingual word embedding behavior, especially for a low-resource language (Marwari), when compared with Hindi and English?
+The notebook uses three corpora drawn from existing sources. English data are taken from Brown and IEER corpora available through NLTK. Hindi data come from the NLTK Indian corpus. Marwari is approximated using a Rajasthani text shard obtained from an external public source because complete Marwari resources are limited.
 
-The workflow is not just model training. It combines:
+The pipeline applies language-specific prefixes to each token so that the vocabularies remain distinct across languages. This prevents accidental collisions and keeps the evaluation focused on cross-lingual structure rather than shared surface forms. The preprocessing stage also performs lowercasing, regular-expression cleanup, token extraction, vocabulary truncation, and sentence filtering. Short or noisy sequences are removed so that training pairs are formed from usable text segments.
 
-- mathematical theory
-- corpus preparation
-- embedding learning
-- geometric distance analysis
-- cross-lingual alignment
-- isotropy/anisotropy diagnostics
-- visual and quantitative evaluation
+The resulting corpora are intentionally modest in size. That constraint reflects the low-resource setting and also keeps the notebook practical for interactive experimentation.
 
-Marwari is treated as the main reference language in the analysis sections, with Hindi and English used as comparisons.
+## V. Embedding Model and Training Objective
 
----
+The representation learning stage follows a skip-gram-style objective [1] with negative sampling behavior approximated through binary classification. For each sentence, the model generates target-context pairs within a sliding window. Observed context pairs are assigned positive labels, while randomly sampled non-context pairs act as negative examples.
 
-## 2) Core NLP and geometry concepts from first principles
+Each language is trained separately. The Keras architecture uses two embedding layers, one for target tokens and one for context tokens. Their outputs are combined through a dot product and passed through a sigmoid layer. Binary cross-entropy is used as the loss function. This setup is simple, but it is sufficient for studying the geometric properties of the resulting spaces.
 
-### 2.1 What is an embedding?
+The goal of this stage is not to maximize benchmark accuracy. Instead, the model produces a controlled embedding space that can be inspected under several geometric interpretations.
 
-A word embedding is a dense vector representation of a token.
+## VI. Geometric Evaluation Framework
 
-Instead of representing a word as a huge sparse one-hot vector, we represent it as a compact continuous vector:
+The notebook compares four geometric views.
 
-- word: "कुत्ता"
-- embedding: a vector in \(\mathbb{R}^d\), for example 24 dimensions
+### A. Euclidean view
 
-Words that occur in similar contexts tend to end up close in embedding space.
+The Euclidean setting uses standard L2 distance. It provides the baseline interpretation of proximity in the learned space and is the most direct way to inspect global layout and centroid separation.
 
-### 2.2 Why geometry matters
+### B. Spherical view
 
-If embeddings are vectors, then semantics are interpreted by geometry:
+For the spherical analysis, vectors are normalized to unit length. This suppresses magnitude effects and emphasizes angular similarity. The resulting view is useful when semantic direction matters more than vector norm.
 
-- closeness
-- angle
-- direction
-- curvature-aware distance
+### C. Hyperbolic view
 
-Different geometric assumptions emphasize different structures.
+For the hyperbolic analysis, embeddings are projected into the Poincare ball as an approximation to a negative-curvature geometry. The corresponding distance function highlights how neighborhood relations change when expansion near the boundary is allowed. Although the notebook does not train embeddings directly in a Riemannian manner, the projection still serves as a useful diagnostic tool.
 
-### 2.3 Euclidean geometry
+### D. Dimensionality reduction
 
-Standard flat geometry. Distance is:
+PCA is used to capture broad variance structure, while t-SNE is used to inspect local clustering. PCA is valuable because it preserves global linear trends and offers interpretability through variance explained. t-SNE is complementary because it reveals neighborhood relations that may be hidden in linear projections.
 
-\[
-d_E(\mathbf{x},\mathbf{y}) = \|\mathbf{x}-\mathbf{y}\|\_2
-\]
+**The figure below illustrates the geometric perspectives used in the analysis:**
 
-Good default. But can be less suitable for directional semantics or hierarchical structure.
+![Geometry views](figures/geometry_views.png)
 
-### 2.4 Cosine similarity and spherical view
+_Fig. 2. Euclidean, spherical, and hyperbolic interpretations of the same embedding set. Each geometry reveals different structural properties of word representations._
 
-Cosine similarity compares direction, not magnitude:
+## VI. Multilingual Alignment
 
-\[
-\cos(\mathbf{x},\mathbf{y}) = \frac{\mathbf{x}^\top\mathbf{y}}{\|\mathbf{x}\|\,\|\mathbf{y}\|}
-\]
+The alignment stage operates on embedding spaces rather than on raw text. Anchor pairs are collected between Marwari and Hindi, producing source vectors X and target vectors Y. The optimization problem is formulated as orthogonal Procrustes [2], [3]:
 
-If vectors are normalized to unit norm (on a sphere), then cosine becomes plain dot product:
+$$
+W^* = \arg\min_{W^T W = I} \|WX - Y\|_F
+$$
 
-\[
-\hat{\mathbf{x}}^\top\hat{\mathbf{y}} = \cos(\theta)
-\]
+The solution is obtained from the singular value decomposition of $YX^T$:
 
-This is useful when direction encodes semantics better than vector length.
+$$
+YX^T = U\Sigma V^T, \quad W^* = UV^T
+$$
 
-### 2.5 Angular distance
+The learned transformation is then applied to the full Marwari embedding matrix so that Marwari vectors are expressed in the Hindi coordinate frame. This shared space allows direct comparison of nearest neighbors and retrieval accuracy before and after alignment.
 
-Angular distance is the geodesic interpretation on the sphere:
+The purpose of the alignment is not to force lexical identity. Rather, it is to test whether a linear rotation is sufficient to expose latent cross-lingual semantic structure.
 
-\[
-d\_{\angle}(\mathbf{x},\mathbf{y}) = \arccos(\cos(\mathbf{x},\mathbf{y}))
-\]
+**The alignment process is depicted below:**
 
-### 2.6 Hyperbolic geometry (Poincare ball)
+![Alignment workflow](figures/alignment_workflow.png)
 
-Hyperbolic space has negative curvature and can model tree-like/hierarchical structure better.
+_Fig. 3. Orthogonal transformation from Marwari source vectors to the Hindi coordinate frame via Procrustes alignment. Anchor pairs establish the optimal rotation while preserving internal geometry._
 
-In Poincare ball coordinates (inside unit disk/ball), the distance is:
+## VIII. Isotropy and Anisotropy Diagnostics
 
-\[
-d\_{\mathbb{B}}(\mathbf{u},\mathbf{v}) = \operatorname{arcosh}\left(1 + \frac{2\|\mathbf{u}-\mathbf{v}\|^2}{(1-\|\mathbf{u}\|^2)(1-\|\mathbf{v}\|^2)}\right)
-\]
+The notebook measures whether the learned spaces distribute information evenly across dimensions. After centering each matrix, singular values are computed to quantify directional concentration. Two summary quantities are reported.
 
-Intuition: space expands faster near boundary, giving more room for branching hierarchies.
+$$
+\text{anisotropy ratio} = \frac{\sigma_{max}}{\text{mean}(\sigma)}
+$$
 
-### 2.7 Isotropy and anisotropy
-
-A good embedding space should spread information across directions.
-
-- isotropic: information distributed relatively evenly
-- anisotropic: vectors collapse into a few dominant directions
-
-The notebook measures anisotropy via singular values and directional variance.
-
----
-
-## 3) Data pipeline and corpora
-
-The notebook uses pre-existing corpora (not synthetic):
-
-- English: Brown + IEER corpora from NLTK
-- Hindi: Indian corpus (hindi.pos) from NLTK
-- Marwari/Rajasthani proxy: ULCA Rajasthani text parquet shard from Hugging Face
-
-### 3.1 Why language prefixes are added
-
-Tokens are prefixed to keep language vocabularies separate:
-
-- en_word
-- hi_word
-- mr_word
-
-This avoids accidental collisions and preserves language identity throughout training/evaluation.
-
-### 3.2 Preprocessing steps
-
-- lowercase normalization
-- regex cleanup (retain Latin and Devanagari ranges)
-- sentence/token extraction
-- frequency-based vocabulary capping
-- filtering too-short tokenized sentences
-
----
-
-## 4) Training objective and model design
-
-### 4.1 Skip-gram-style pairs
-
-From each sentence, target-context windows generate positive pairs.
-
-Negative pairs are sampled from vocabulary entries that were not observed as positive context for the target.
-
-This gives training tuples:
-
-- target_id
-- context_id
-- label in {0,1}
-
-### 4.2 Keras model architecture
-
-For each language independently:
-
-- Input target token ID
-- Input context token ID
-- Two embedding layers (target and context)
-- Dot product
-- Sigmoid output
-- Binary cross-entropy loss
-
-This approximates a negative-sampling skip-gram objective.
-
----
-
-## 5) Geometry functions implemented
-
-The notebook implements reusable functions for:
-
-- \(L_2\) norm and row normalization
-- Euclidean distance
-- cosine similarity
-- angular distance
-- projection into Poincare ball
-- hyperbolic distance in Poincare model
-- pairwise metric matrix construction
-
-These functions are then used consistently across analyses.
-
----
-
-## 6) Spherical and hyperbolic analyses
-
-### 6.1 Spherical
-
-Embeddings are normalized to unit length and compared by angle/cosine.
-
-### 6.2 Hyperbolic
-
-Embeddings are projected to Poincare ball as an approximation for hyperbolic analysis.
-
-A toy hierarchy is included to demonstrate why hyperbolic geometry is useful for parent-child-sibling structures.
-
----
-
-## 7) What exactly is aligned in multilingual alignment
-
-This is critical.
-
-The notebook aligns vector spaces, not raw text.
-
-### 7.1 Source and target spaces
-
-- Marwari embedding matrix: \(E\_{mr}\)
-- Hindi embedding matrix: \(E\_{hi}\)
-
-Using bilingual anchor pairs, it constructs:
-
-- \(X\): Marwari anchor vectors
-- \(Y\): Hindi anchor vectors
-
-### 7.2 Optimization solved
-
-Orthogonal Procrustes:
-
-\[
-W^\* = \arg\min\_{W^\top W = I}\|WX - Y\|\_F
-\]
-
-### 7.3 Closed-form solution
-
-Compute SVD:
-
-\[
-YX^\top = U\Sigma V^\top
-\]
-
-Then:
-
-\[
-W^\* = UV^\top
-\]
-
-### 7.4 Applying alignment
-
-All Marwari embeddings are mapped into Hindi coordinates:
-
-\[
-\tilde{E}_{mr} = (W E_{mr}^\top)^\top
-\]
-
-So cross-lingual nearest-neighbor comparisons become meaningful in a shared frame.
-
----
-
-## 8) Isotropy/anisotropy diagnostics in this notebook
-
-For each space:
-
-1. compute mean vector norm
-2. center embedding matrix
-3. compute singular values
-4. compute anisotropy ratio:
-
-\[
-\text{anisotropy ratio} = \frac{\sigma\_{max}}{\text{mean}(\sigma)}
-\]
-
-5. compute isotropy index:
-
-\[
+$$
 \text{isotropy index} = \frac{1}{\text{anisotropy ratio}}
-\]
+$$
 
-6. sample random directions and measure projection variances
+A high anisotropy ratio indicates that the space is dominated by a few directions, while a higher isotropy index indicates more balanced spread. The notebook also examines random projection variance to confirm whether the singular-value-based interpretation is consistent with directional behavior.
 
-The notebook also includes delta columns vs Marwari baseline.
+These measurements are reported for the original Marwari space, the Hindi space, the English space, and the aligned Marwari space. The comparison helps isolate whether alignment improves structural balance or simply rotates the geometry without changing its intrinsic shape.
 
----
+## IX. Experimental Results
 
-## 9) Visualization strategy (and why each exists)
+### A. Qualitative retrieval
 
-The notebook now uses separate cell blocks for each graph.
+The notebook evaluates sample Marwari queries against Hindi neighbors before and after alignment. Before alignment, nearest neighbors often reflect partial overlap in orthography or weak semantic association. After alignment, the neighbors are expected to show improved semantic plausibility. The examples are useful because they expose both successes and failure cases in a way that metrics alone cannot.
 
-### 9.1 Euclidean views
+### B. Retrieval at rank 1
 
-- PCA (all three languages)
-- t-SNE (all three languages)
-- PCA (Marwari aligned vs Hindi)
+A dictionary-style retrieval evaluation is computed using Euclidean, cosine, angular, and hyperbolic distances. For each metric, the notebook compares performance before and after alignment and reports the change in retrieval@1. This allows the same lexical pairs to be assessed under multiple geometric assumptions.
 
-Purpose: observe global geometry and neighborhood separation under flat metric assumptions.
+The main value of the metric comparison is interpretive. If a metric improves consistently after alignment, then the chosen geometry is compatible with the alignment procedure. If one metric behaves differently from the others, that difference can indicate sensitivity to curvature, normalization, or norm effects.
 
-### 9.2 Spherical view
+### C. Centroid separation
 
-- PCA on normalized vectors
+Language centroid distances are summarized in bar-chart form for multiple geometries. This provides a compact view of how far Marwari sits from Hindi and English in each metric space. The comparison is particularly useful for understanding whether alignment compresses the Marwari-Hindi gap without collapsing distinctions among all three languages.
 
-Purpose: compare direction-focused geometry where norm effects are removed.
+### D. Heatmap analysis
 
-### 9.3 Hyperbolic view
+The notebook includes three heatmaps for the Marwari-to-Hindi pair: before alignment, after alignment, and gain. The before/after comparison shows whether the anchor-based mapping improves similarity for the selected word pairs. The gain map isolates where the alignment produced the strongest positive shift. This is especially helpful for interpreting localized improvements that are difficult to see in aggregate scores.
 
-- PCA on Poincare-projected vectors
+## X. Discussion
 
-Purpose: inspect structure under a negative-curvature-inspired representation.
+The combined evidence suggests that geometry matters both for analysis and for interpretation. Euclidean visualization captures the broad distribution of vectors, but it can hide semantic directionality. Spherical normalization reduces norm effects and often clarifies neighborhood structure. Hyperbolic projection is most useful as a diagnostic for hierarchy-sensitive behavior, even when the embeddings are not trained directly in hyperbolic space.
 
-### 9.4 Centroid separation by geometry
+Orthogonal alignment provides a simple but effective bridge between Marwari and Hindi. Because the transformation is constrained to be a rotation, it preserves internal distances while reorienting the source space toward the target space. That property makes it especially suitable for comparing pre- and post-alignment neighborhoods without introducing distortion from an unconstrained mapping.
 
-A per-geometry bar chart compares language centroid distances:
+The anisotropy results are important in their own right. If a space is too concentrated along a few principal axes, then cosine-based comparison may overstate similarity among unrelated tokens. The diagnostics included in the notebook help identify that risk and show whether the aligned space becomes more balanced or remains directionally compressed.
 
-- d(Marwari,Hindi)
-- d(Marwari,English)
-- d(Hindi,English)
+## XI. Limitations
 
-Purpose: summarize cross-language separation changes by geometry.
+The study has several limitations. The Marwari corpus is a proxy resource rather than a large canonical dataset, so its coverage is incomplete. The corpora are small enough to support notebook execution, but that choice limits generalization. The hyperbolic component is projection-based rather than a full Riemannian optimization procedure, so it should be treated as an analytical approximation. Finally, retrieval quality depends on the quality of the anchor lexicon used for alignment.
 
-### 9.5 Focused Marwari->Hindi heatmaps
+These limits do not invalidate the study, but they do constrain how strongly the results should be generalized beyond the notebook setting.
 
-Three separate heatmaps on top informative pairs:
+## XI. Conclusion
 
-- before alignment
-- after alignment
-- gain (after minus before)
+This report demonstrates an IEEE-style analysis pipeline for multilingual embeddings in a low-resource setting. The main finding is that the geometry used to inspect or compare embeddings materially affects the observed behavior. Euclidean, spherical, and hyperbolic views each reveal different aspects of the same learned representations, while orthogonal alignment improves cross-lingual comparability in a controlled and interpretable way.
 
-Purpose: readable local evidence of alignment improvement.
+The notebook is therefore best understood as a compact research prototype: it combines corpus preparation, distributional training, geometric diagnostics, and multilingual evaluation into one coherent experimental framework. For a low-resource language such as Marwari, this type of analysis is useful because it shows not only whether alignment works, but also how and under what geometric assumptions it works.
 
----
+## References
 
-## 10) Experimental evaluation
+[1] T. Mikolov, K. Chen, G. Corrado, and J. Dean, "Efficient Estimation of Word Representations in Vector Space," arXiv:1301.3781, 2013.
 
-### 10.1 Qualitative retrieval
+[2] M. Artetxe, G. Labaka, and E. Agirre, "Learning Bilingual Word Embeddings with (Almost) No Bilingual Data," in Proc. 55th Annual Meeting of the Association for Computational Linguistics, 2017.
 
-For sample Marwari queries:
+[3] S. Ruder, I. Vulić, and A. Søgaard, "A Survey of Cross-lingual Word Embedding Models," Journal of Artificial Intelligence Research, vol. 65, pp. 859-893, 2019.
 
-- nearest Hindi neighbors before alignment
-- nearest Hindi neighbors after alignment
+[4] M. Nickel and D. Kiela, "Poincaré Embeddings for Learning Hierarchical Representations," in Proc. Advances in Neural Information Processing Systems, 2017.
 
-Shows intuitive improvement/failure cases.
+[5] A. Mu and S. Viswanath, "All-but-the-Top: Simple and Effective Postprocessing for Word Representations," in Proc. International Conference on Learning Representations, 2018.
 
-### 10.2 Quantitative retrieval@1 by metric
-
-Evaluates dictionary retrieval with four metrics:
-
-- Euclidean
-- cosine
-- angular
-- hyperbolic
-
-Compares before vs after alignment and reports gain.
-
-The plot now explicitly annotates before and after values so low bars are still readable.
-
----
-
-## 11) Why PCA and t-SNE are both used
-
-### 11.1 PCA (Principal Component Analysis)
-
-PCA is a linear dimensionality reduction method.
-
-It finds orthogonal axes (principal components) of maximum variance and projects data onto top components.
-
-Pros:
-
-- deterministic (given data)
-- global structure preserving (linear)
-- interpretable in variance terms
-
-### 11.2 t-SNE (t-distributed Stochastic Neighbor Embedding)
-
-t-SNE is nonlinear dimensionality reduction focused on local neighborhood preservation.
-
-Pros:
-
-- often shows local clusters clearly
-
-Caveats:
-
-- can distort global distances
-- sensitive to hyperparameters
-- mostly a visualization tool, not a metric space itself
-
-Using both gives a balanced geometric perspective.
-
----
-
-## 12) Why this notebook is useful academically
-
-This notebook is strong as a mini research submission because it:
-
-- starts from explicit math
-- uses real corpora
-- trains reproducible baseline embeddings
-- compares multiple geometries on same embeddings
-- performs multilingual alignment with formal objective
-- provides isotropy/anisotropy diagnostics
-- includes qualitative and quantitative experiments
-- presents interpretable plots and tables
-
----
-
-## 13) Practical interpretation of outcomes
-
-When reading outputs, focus on:
-
-1. alignment quality
-
-- average pair cosine before vs after
-- retrieval gains
-
-2. geometry effects
-
-- which metric performs better after alignment
-- whether hyperbolic behaves differently than Euclidean/cosine
-
-3. anisotropy behavior
-
-- higher anisotropy ratio indicates stronger directional collapse
-- compare deltas vs Marwari baseline
-
-4. visualization consistency
-
-- whether Marwari neighborhoods move closer to Hindi anchors post-alignment
-
----
-
-## 14) Limitations and caveats
-
-- Marwari source uses a Rajasthani proxy corpus shard (resource constraint reality)
-- small sampled corpora for runtime practicality
-- hyperbolic treatment is projection-based approximation, not full Riemannian training
-- retrieval metrics depend on anchor lexicon quality/coverage
-
----
-
-## 15) Suggested future upgrades
-
-- true hyperbolic embedding optimization (Riemannian training)
-- stronger lexicon induction or supervised bilingual dictionaries
-- contextual multilingual embeddings comparison
-- larger corpora and controlled ablation studies
-- bootstrap confidence intervals for retrieval improvements
-
----
-
-## 16) One-line summary
-
-This notebook demonstrates how geometric choice, anisotropy structure, and orthogonal multilingual alignment jointly shape cross-lingual embedding quality, with Marwari as the primary low-resource reference and Hindi/English as comparison anchors.
+[6] A. Tifrea, G. Bécigneul, and O. Ganea, "Poincaré GloVe: Hyperbolic Word Embeddings," in Proc. International Conference on Learning Representations, 2019.
