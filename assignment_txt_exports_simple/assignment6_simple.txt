@@ -1,0 +1,252 @@
+# Assignment 6
+# Required packages
+pip install -U "numpy<2.0" "scipy<1.13" "ml-dtypes>=0.5.4" spacy gensim nltk transformers torch evaluate rouge_score pandas matplotlib seaborn datasets tqdm
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from datasets import load_dataset
+from tqdm.auto import tqdm
+import evaluate
+
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print("Using device:", device)
+
+# Language code mapping per model family
+NLLB_LANGS = {
+    "en": "eng_Latn",
+    "hi": "hin_Deva",
+    "mr": "mar_Deva",
+    "es": "spa_Latn",
+}
+
+M2M_LANGS = {
+    "en": "en",
+    "hi": "hi",
+    "mr": "mr",
+    "es": "es",
+}
+
+# ---------- Data Type 1: Multilingual Corpus (OPUS-100 parallel corpora) ----------
+# Using three corpus slices and combining them into a 4-language table.
+corpus_sample_size = 12
+
+en_hi = load_dataset("opus100", "en-hi", split=f"test[:{corpus_sample_size}]")
+en_mr = load_dataset("opus100", "en-mr", split=f"test[:{corpus_sample_size}]")
+en_es = load_dataset("opus100", "en-es", split=f"test[:{corpus_sample_size}]")
+
+corpus_df = pd.DataFrame(
+    {
+        "en": [x["en"] for x in en_hi["translation"]],
+        "hi": [x["hi"] for x in en_hi["translation"]],
+        "mr": [x["mr"] for x in en_mr["translation"]],
+        "es": [x["es"] for x in en_es["translation"]],
+    }
+)
+
+# ---------- Data Type 2: Custom/Domain Data ----------
+custom_rows = [
+    {
+        "en": "Please submit your assignment before Friday.",
+        "hi": "कृपया शुक्रवार से पहले अपना असाइनमेंट जमा करें।",
+        "mr": "कृपया शुक्रवारीपूर्वी तुमचे असाइनमेंट जमा करा.",
+        "es": "Por favor, envía tu tarea antes del viernes.",
+    },
+    {
+        "en": "The train is delayed due to heavy rain.",
+        "hi": "भारी बारिश के कारण ट्रेन देर से है।",
+        "mr": "मुसळधार पावसामुळे रेल्वेला उशीर झाला आहे.",
+        "es": "El tren está retrasado debido a la fuerte lluvia.",
+    },
+    {
+        "en": "Can you explain this concept with an example?",
+        "hi": "क्या आप इस अवधारणा को उदाहरण के साथ समझा सकते हैं?",
+        "mr": "तुम्ही ही संकल्पना उदाहरणासह समजावू शकता का?",
+        "es": "¿Puedes explicar este concepto con un ejemplo?",
+    },
+    {
+        "en": "I need to book a doctor appointment for tomorrow.",
+        "hi": "मुझे कल के लिए डॉक्टर की अपॉइंटमेंट बुक करनी है।",
+        "mr": "मला उद्यासाठी डॉक्टरांची अपॉइंटमेंट बुक करायची आहे.",
+        "es": "Necesito reservar una cita con el médico para mañana.",
+    },
+    {
+        "en": "Learning multiple languages improves cognitive flexibility.",
+        "hi": "कई भाषाएँ सीखना संज्ञानात्मक लचीलापन बढ़ाता है।",
+        "mr": "अनेक भाषा शिकल्याने संज्ञानात्मक लवचिकता वाढते.",
+        "es": "Aprender varios idiomas mejora la flexibilidad cognitiva.",
+    },
+]
+custom_df = pd.DataFrame(custom_rows)
+
+print("Corpus data shape:", corpus_df.shape)
+print("Custom data shape:", custom_df.shape)
+corpus_df.head(3)
+
+# Define the 2 models from 2 families
+MODEL_CONFIG = {
+    "NLLB": "facebook/nllb-200-distilled-600M",
+    "M2M100": "facebook/m2m100_418M",
+}
+
+models = {}
+for family, model_name in MODEL_CONFIG.items():
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
+    model.eval()
+    models[family] = {"tokenizer": tokenizer, "model": model, "name": model_name}
+
+print("Loaded models:")
+for k, v in models.items():
+    print(f"- {k}: {v['name']}")
+
+def translate_batch(model_family, texts, src_key, tgt_key, max_new_tokens=128):
+    """Translate a list of texts using selected model family."""
+    bundle = models[model_family]
+    tokenizer = bundle["tokenizer"]
+    model = bundle["model"]
+
+    if model_family == "NLLB":
+        src_lang = NLLB_LANGS[src_key]
+        tgt_lang = NLLB_LANGS[tgt_key]
+        tokenizer.src_lang = src_lang
+        encoded = tokenizer(texts, return_tensors="pt", padding=True, truncation=True).to(device)
+        forced_bos = tokenizer.convert_tokens_to_ids(tgt_lang)
+        with torch.no_grad():
+            generated = model.generate(**encoded, forced_bos_token_id=forced_bos, max_new_tokens=max_new_tokens)
+    else:  # M2M100
+        src_lang = M2M_LANGS[src_key]
+        tgt_lang = M2M_LANGS[tgt_key]
+        tokenizer.src_lang = src_lang
+        encoded = tokenizer(texts, return_tensors="pt", padding=True, truncation=True).to(device)
+        forced_bos = tokenizer.get_lang_id(tgt_lang)
+        with torch.no_grad():
+            generated = model.generate(**encoded, forced_bos_token_id=forced_bos, max_new_tokens=max_new_tokens)
+
+    return tokenizer.batch_decode(generated, skip_special_tokens=True)
+
+
+def evaluate_set(df, data_type, language_pairs):
+    bleu_metric = evaluate.load("sacrebleu")
+    chrf_metric = evaluate.load("chrf")
+    ter_metric = evaluate.load("ter")
+
+    rows = []
+    for src, tgt in language_pairs:
+        src_texts = df[src].astype(str).tolist()
+        ref_texts = df[tgt].astype(str).tolist()
+        wrapped_refs = [[ref] for ref in ref_texts]
+
+        for model_family in models.keys():
+            hyps = translate_batch(
+                model_family=model_family,
+                texts=src_texts,
+                src_key=src,
+                tgt_key=tgt,
+            )
+
+            bleu_score = bleu_metric.compute(predictions=hyps, references=wrapped_refs)["score"]
+            chrf_score = chrf_metric.compute(predictions=hyps, references=wrapped_refs)["score"]
+            ter_score = ter_metric.compute(predictions=hyps, references=wrapped_refs)["score"]
+
+            rows.append(
+                {
+                    "data_type": data_type,
+                    "model_family": model_family,
+                    "pair": f"{src}->{tgt}",
+                    "BLEU": bleu_score,
+                    "chrF": chrf_score,
+                    "TER": ter_score,
+                }
+            )
+
+    return pd.DataFrame(rows)
+
+# Language pairs covering the 4-language blend
+language_pairs = [
+    ("en", "hi"),
+    ("en", "mr"),
+    ("en", "es"),
+    ("hi", "en"),
+    ("mr", "en"),
+    ("es", "en"),
+]
+
+corpus_results = evaluate_set(corpus_df, "corpus_opus100", language_pairs)
+custom_results = evaluate_set(custom_df, "custom_domain", language_pairs)
+
+results_df = pd.concat([corpus_results, custom_results], ignore_index=True)
+results_df.sort_values(["data_type", "pair", "model_family"]).reset_index(drop=True)
+
+# Comparison summary (higher BLEU/chrF is better, lower TER is better)
+summary = (
+    results_df.groupby(["data_type", "model_family"], as_index=False)
+    .agg({"BLEU": "mean", "chrF": "mean", "TER": "mean"})
+    .round(2)
+)
+print(summary)
+
+# Plot 3: TER Score Comparison
+plt.figure(figsize=(8, 5))
+sns.barplot(data=summary, x="data_type", y="TER", hue="model_family")
+plt.title("Mean TER Score by Data Type", fontsize=14, fontweight="bold")
+plt.xlabel("Data Type", fontsize=12)
+plt.ylabel("TER (Lower is Better)", fontsize=12)
+plt.xticks(rotation=15)
+plt.tight_layout()
+plt.show()
+
+# Plot 2: chrF Score Comparison
+plt.figure(figsize=(8, 5))
+sns.barplot(data=summary, x="data_type", y="chrF", hue="model_family")
+plt.title("Mean chrF Score by Data Type", fontsize=14, fontweight="bold")
+plt.xlabel("Data Type", fontsize=12)
+plt.ylabel("chrF", fontsize=12)
+plt.xticks(rotation=15)
+plt.tight_layout()
+plt.show()
+
+# Plot 1: BLEU Score Comparison
+plt.figure(figsize=(8, 5))
+sns.barplot(data=summary, x="data_type", y="BLEU", hue="model_family")
+plt.title("Mean BLEU Score by Data Type", fontsize=14, fontweight="bold")
+plt.xlabel("Data Type", fontsize=12)
+plt.ylabel("BLEU", fontsize=12)
+plt.xticks(rotation=15)
+plt.tight_layout()
+plt.show()
+
+# Display translated sentences for all language pairs and data types
+print("=" * 120)
+print("TRANSLATED SENTENCES COMPARISON")
+print("=" * 120)
+
+for data_name, data_df in [("CORPUS (OPUS-100)", corpus_df), ("CUSTOM DOMAIN DATA", custom_df)]:
+    print(f"\n\n{'='*120}")
+    print(f"DATA TYPE: {data_name}")
+    print(f"{'='*120}\n")
+    
+    for src, tgt in language_pairs:
+        print(f"\n{'-'*120}")
+        print(f"Language Pair: {src.upper()} → {tgt.upper()}")
+        print(f"{'-'*120}\n")
+        
+        src_texts = data_df[src].astype(str).tolist()
+        ref_texts = data_df[tgt].astype(str).tolist()
+        
+        # Generate translations for this pair
+        nllb_hyps = translate_batch("NLLB", src_texts, src, tgt)
+        m2m_hyps = translate_batch("M2M100", src_texts, src, tgt)
+        
+        # Display first 3 examples per pair
+        for idx in range(min(3, len(src_texts))):
+            print(f"Example {idx+1}:")
+            print(f"  SOURCE ({src.upper()}):      {src_texts[idx][:80]}")
+            print(f"  REFERENCE ({tgt.upper()}):   {ref_texts[idx][:80]}")
+            print(f"  NLLB:                    {nllb_hyps[idx][:80]}")
+            print(f"  M2M100:                  {m2m_hyps[idx][:80]}")
+            print()

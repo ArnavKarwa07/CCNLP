@@ -1,0 +1,309 @@
+# Assignment 3
+# Install required packages
+pip install -U "numpy<2.0" "scipy<1.13" "ml-dtypes>=0.5.4" spacy gensim nltk transformers torch evaluate rouge_score pandas matplotlib seaborn datasets tqdm
+
+# ---- Code Cell 1 ----
+# Import libraries
+import spacy
+from gensim import corpora
+import numpy as np
+from collections import Counter
+from nltk.util import ngrams
+
+# ---- Code Cell 2 ----
+# Sample documents
+doc1 = "cats and dogs are not allowed"
+doc2 = "cats and dogs are antagonistic"
+documents = [doc1, doc2]
+print("Document 1:", doc1)
+print("Document 2:", doc2)
+
+# ---- Code Cell 3 ----
+# ============ BAG OF WORDS (BoW) MODEL ============
+
+# Tokenize documents - break text into individual words
+doc1_tokens = doc1.lower().split()
+doc2_tokens = doc2.lower().split()
+print("Tokenized Document 1:", doc1_tokens)
+print("Tokenized Document 2:", doc2_tokens)
+
+# ---- Code Cell 4 ----
+# Create vocabulary - unique words across all documents
+vocabulary = sorted(set(doc1_tokens + doc2_tokens))
+print("\nVocabulary (all unique words):", vocabulary)
+print("Vocabulary size:", len(vocabulary))
+
+# ---- Code Cell 5 ----
+# Create feature vectors using built-in Counter
+def create_bow_vector(tokens, vocab):
+    token_counts = Counter(tokens)
+    return [token_counts[word] for word in vocab]
+
+vector1 = create_bow_vector(doc1_tokens, vocabulary)
+vector2 = create_bow_vector(doc2_tokens, vocabulary)
+
+print("\nFeature Vector for Document 1:")
+print(vector1)
+print("\nFeature Vector for Document 2:")
+print(vector2)
+
+# Display word-to-count mapping
+print("\nWord-to-count mapping for Doc1:")
+for word, count in zip(vocabulary, vector1):
+    if count > 0:
+        print(f"  {word}: {count}")
+
+# ---- Code Cell 6 ----
+# ============ GENSIM BoW MODEL ============
+
+# Create Gensim Dictionary - maps each unique word to an ID
+tokenized_docs = [doc1_tokens, doc2_tokens]
+dictionary = corpora.Dictionary(tokenized_docs)
+
+print("\nGensim Dictionary (word -> ID mapping):")
+print(dictionary.token2id)
+print(f"\nDictionary size: {len(dictionary)}")
+
+# ---- Code Cell 7 ----
+# doc2bow - converts document to bag of words representation (word_id, frequency)
+bow_doc1 = dictionary.doc2bow(doc1_tokens)
+bow_doc2 = dictionary.doc2bow(doc2_tokens)
+
+print("\ndoc2bow for Document 1 (word_id, count):")
+print(bow_doc1)
+print("\ndoc2bow for Document 2 (word_id, count):")
+print(bow_doc2)
+
+# Gensim Function 2: doc2idx - map tokens to dictionary IDs (-1 for OOV)
+doc1_ids = dictionary.doc2idx(doc1_tokens)
+doc2_ids = dictionary.doc2idx(doc2_tokens)
+print("\ndoc2idx for Document 1:", doc1_ids)
+print("doc2idx for Document 2:", doc2_ids)
+
+# Gensim Function 3: add_documents - update dictionary with new text
+extra_docs = [["cats", "and", "birds", "coexist"]]
+dictionary_updated = corpora.Dictionary(tokenized_docs)
+dictionary_updated.add_documents(extra_docs)
+print("\nUpdated dictionary size after add_documents:", len(dictionary_updated))
+print("Updated token2id:", dictionary_updated.token2id)
+
+# Decode to show which words the IDs represent
+print("\nDecoded BoW for Document 1:")
+for word_id, freq in bow_doc1:
+    print(f"  {dictionary[word_id]}: {freq}")
+
+# ---- Code Cell 8 ----
+# ============ N-GRAMS MODEL ============
+
+texts = [doc1_tokens, doc2_tokens]
+
+# ngrams with probabilities
+def get_ngram_probabilities(data, n=2):
+    all_tokens = [word for sublist in data for word in sublist]
+    # generate ngrams
+    n_grams = list(ngrams(all_tokens, n))
+    n_minus_1_grams = list(ngrams(all_tokens, n - 1))
+
+    counts = Counter(n_grams)
+    history_counts = Counter(n_minus_1_grams)
+
+    print(f"\nTop {n}-gram Probabilities:")
+    for gram in list(counts.keys())[:5]:
+        # P(word | history) = count(history + word) / count(history)
+        history = gram[:-1]
+        prob = counts[gram] / history_counts[history]
+        print(f"P({gram[-1]} | {' '.join(history)}) = {prob:.4f}")
+
+get_ngram_probabilities(texts, n=2)
+
+# ---- Code Cell 9 ----
+# Trigrams (3-grams) probabilities
+get_ngram_probabilities(texts, n=3)
+
+# ---- Code Cell 10 ----
+# ============ NEXT WORD PREDICTION USING N-GRAMS ============
+
+def build_next_word_probability_model(data, n=2):
+    all_tokens = [word for sublist in data for word in sublist]
+    n_grams = list(ngrams(all_tokens, n))
+    n_minus_1_grams = list(ngrams(all_tokens, n - 1))
+
+    counts = Counter(n_grams)
+    history_counts = Counter(n_minus_1_grams)
+
+    prob_model = {}
+    for gram, count in counts.items():
+        history = gram[:-1]
+        next_word = gram[-1]
+        prob = count / history_counts[history]
+        if history not in prob_model:
+            prob_model[history] = {}
+        prob_model[history][next_word] = prob
+
+    return prob_model, counts
+
+bigram_prob_model, bigram_counts = build_next_word_probability_model(texts, n=2)
+
+print("\n========== NEXT WORD PREDICTION MODEL ==========")
+for context, next_words in bigram_prob_model.items():
+    print(f"\nP(next_word | {' '.join(context)}):")
+    for word, prob in next_words.items():
+        print(f"  P({word} | {' '.join(context)}) = {prob:.3f}")
+
+# ---- Code Cell 11 ----
+# Predict next word given context using probability model
+def predict_next_word(context, prob_model):
+    context_tuple = tuple(context.lower().split())
+
+    if context_tuple not in prob_model:
+        return None, None, "Context not found in model"
+
+    next_words = prob_model[context_tuple]
+    predicted_word = max(next_words, key=next_words.get)
+    probability = next_words[predicted_word]
+
+    return predicted_word, probability, None
+
+print("\n========== NEXT WORD PREDICTIONS ==========")
+
+# For bigram model, context length must be 1 word
+test_contexts = ["cats", "and", "dogs", "are"]
+
+for context in test_contexts:
+    predicted, prob, message = predict_next_word(context, bigram_prob_model)
+    if predicted:
+        print(f"\nContext: '{context}'")
+        print(f"Predicted next word: '{predicted}'")
+        print(f"Probability: {prob:.3f}")
+    else:
+        print(f"\nContext: '{context}' - {message}")
+
+# ---- Code Cell 12 ----
+# Build trigram model for more context-aware predictions
+trigram_prob_model, trigram_counts = build_next_word_probability_model(texts, n=3)
+
+print("\n========== TRIGRAM PREDICTIONS (2-word context) ==========")
+for context, next_words in trigram_prob_model.items():
+    print(f"\nP(next_word | {' '.join(context)}):")
+    for word, prob in next_words.items():
+        print(f"P({word} | {' '.join(context)}) = {prob:.3f}")
+
+# Test with 2-word contexts for trigram model
+test_contexts_trigram = ["cats and", "and dogs", "dogs are"]
+
+print("\nPredictions:")
+for context in test_contexts_trigram:
+    predicted, prob, message = predict_next_word(context, trigram_prob_model)
+    if predicted:
+        print(f"\nContext: '{context}'")
+        print(f"Predicted next word: '{predicted}'")
+        print(f"Probability: {prob:.3f}")
+    else:
+        print(f"\nContext: '{context}' - {message}")
+
+# ---- Code Cell 13 ----
+# ============ USING SPACY FOR BoW ============
+
+# Load spaCy model for text processing (with graceful fallback)
+try:
+    nlp = spacy.load("en_core_web_sm")
+except Exception:
+    try:
+        from spacy.cli import download
+        download("en_core_web_sm")
+        nlp = spacy.load("en_core_web_sm")
+    except Exception:
+        nlp = spacy.blank("en")
+
+# Process documents with spaCy
+doc1_spacy = nlp(doc1)
+doc2_spacy = nlp(doc2)
+
+# spaCy Function 1: Tokenization
+doc1_tokens_spacy = [token.text.lower() for token in doc1_spacy if not token.is_punct]
+doc2_tokens_spacy = [token.text.lower() for token in doc2_spacy if not token.is_punct]
+
+print("\n========== SPACY PROCESSING ==========")
+print("\nSpacy tokens Doc1:", doc1_tokens_spacy)
+print("Spacy tokens Doc2:", doc2_tokens_spacy)
+
+# spaCy Function 2: Lemmatization (token.lemma_)
+lemmas_doc1 = [token.lemma_ if token.lemma_ else token.text.lower() for token in doc1_spacy if not token.is_punct]
+lemmas_doc2 = [token.lemma_ if token.lemma_ else token.text.lower() for token in doc2_spacy if not token.is_punct]
+print("\nSpacy lemmas Doc1:", lemmas_doc1)
+print("Spacy lemmas Doc2:", lemmas_doc2)
+
+# spaCy Function 3: POS tagging (token.pos_)
+pos_doc1 = [(token.text, token.pos_ if token.pos_ else 'N/A') for token in doc1_spacy if not token.is_punct]
+pos_doc2 = [(token.text, token.pos_ if token.pos_ else 'N/A') for token in doc2_spacy if not token.is_punct]
+print("\nSpacy POS tags Doc1:", pos_doc1)
+print("Spacy POS tags Doc2:", pos_doc2)
+
+# Create vocabulary from spaCy tokens
+vocab_spacy = sorted(set(doc1_tokens_spacy + doc2_tokens_spacy))
+print("\nSpacy Vocabulary:", vocab_spacy)
+
+# Create BoW vectors
+vector1_spacy = create_bow_vector(doc1_tokens_spacy, vocab_spacy)
+vector2_spacy = create_bow_vector(doc2_tokens_spacy, vocab_spacy)
+
+print("\nSpacy BoW Vector Doc1:", vector1_spacy)
+print("Spacy BoW Vector Doc2:", vector2_spacy)
+
+# ---- Code Cell 14 ----
+# ============ WORD2VEC DEMONSTRATION ============
+
+from gensim.models import Word2Vec
+
+# Prepare training data - list of tokenized sentences
+training_data = [doc1_tokens, doc2_tokens]
+
+# Train Word2Vec model
+word2vec_model = Word2Vec(sentences=training_data, vector_size=10, window=2, min_count=1, sg=0)
+
+print("\n========== WORD2VEC ==========")
+print("\nWord2Vec Vocabulary:", list(word2vec_model.wv.index_to_key))
+
+# Get vector representation for words
+print("\nVector for 'cats':", word2vec_model.wv['cats'])
+print("Vector for 'dogs':", word2vec_model.wv['dogs'])
+
+# Additional Gensim functions on Word2Vec vectors
+print("\nSimilarity(cats, dogs):", round(word2vec_model.wv.similarity('cats', 'dogs'), 4))
+print("Most similar to 'cats':", word2vec_model.wv.most_similar('cats', topn=3))
+
+print("\nVector dimensions:", word2vec_model.wv.vector_size)
+
+# ---- Code Cell 15 ----
+# ============ DOC2VEC DEMONSTRATION ============
+
+from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+
+# Prepare tagged documents - each document needs a unique tag/ID
+tagged_docs = [
+    TaggedDocument(words=doc1_tokens, tags=['DOC1']),
+    TaggedDocument(words=doc2_tokens, tags=['DOC2'])
+]
+
+# Train Doc2Vec model - creates vector representations for entire documents
+# vector_size: dimension of document vectors
+# min_count: ignores words with frequency less than this
+# epochs: number of training iterations
+doc2vec_model = Doc2Vec(tagged_docs, vector_size=10, min_count=1, epochs=40)
+
+print("\n========== DOC2VEC ==========")
+print("\nDoc2Vec Vocabulary:", list(doc2vec_model.wv.index_to_key))
+
+# Get vector representation for documents
+doc1_vector = doc2vec_model.dv['DOC1']
+doc2_vector = doc2vec_model.dv['DOC2']
+
+print("\nDocument 1 vector:", doc1_vector)
+print("Document 2 vector:", doc2_vector)
+
+# Calculate similarity between documents using cosine similarity
+from numpy import dot
+from numpy.linalg import norm
+
+cosine_sim = dot(doc1_vector, doc2_vector) / (norm(doc1_vector) * norm(doc2_vector))
+print(f"\nCosine similarity between documents: {cosine_sim:.4f}")

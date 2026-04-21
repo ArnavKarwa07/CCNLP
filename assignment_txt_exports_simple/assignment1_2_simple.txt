@@ -1,0 +1,752 @@
+# Assignment 1 and 2
+# Required packages
+pip install -U "numpy<2.0" "scipy<1.13" "ml-dtypes>=0.5.4" spacy gensim nltk transformers torch evaluate rouge_score pandas matplotlib seaborn datasets tqdm
+
+# %pip install nltk[all]
+
+import matplotlib.pyplot as plt
+
+import nltk
+
+# nltk.download('all')
+
+from nltk.book import *
+
+# List all corpora in NLTK
+import os
+import nltk
+
+corpora_dir = nltk.data.find("corpora")
+all_corpora = os.listdir(corpora_dir)
+all_corpora
+
+text1
+
+sents()
+
+text7
+
+sent7
+
+len(sent7)
+
+len(text7)
+
+len(set(text7))
+
+from nltk.corpus import gutenberg
+
+print(gutenberg.fileids())
+hamlet = gutenberg.words('shakespeare-hamlet.txt')
+print(len(hamlet))
+print(hamlet[1:10])
+
+# Exploration of any 3 Indian corpora/files
+from nltk.corpus import indian
+
+indian_files = indian.fileids()
+print('\nIndian corpus fileids (sample):', indian_files[:12])
+
+selected_indian = [
+    fid for fid in indian_files
+    if any(lang in fid.lower() for lang in ['hindi', 'marathi', 'telugu'])
+][:3]
+if len(selected_indian) < 3:
+    selected_indian = indian_files[:3]
+
+print('\nSelected 3 Indian corpora/files for exploration:')
+for fid in selected_indian:
+    words_list = indian.words(fid)
+    tagged_list = indian.tagged_words(fid)
+    print(f'\nFile: {fid}')
+    print(f'Total tokens: {len(words_list)}')
+    print(f'Unique tokens: {len(set(words_list))}')
+    print('Sample words:', words_list[:20])
+    print('Sample POS tags:', tagged_list[:15])
+
+from collections import Counter
+from itertools import chain
+
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from nltk import FreqDist
+from nltk.corpus import indian
+
+sns.set_style("whitegrid")
+
+# Directly use Nirmala UI for Devanagari rendering
+plt.rcParams["font.family"] = "Nirmala UI"
+plt.rcParams["axes.unicode_minus"] = False
+
+file_ids = [fid for fid in indian.fileids() if "marathi" in fid.lower()]
+if not file_ids:
+    raise ValueError("No Marathi dataset found in nltk.corpus.indian.")
+
+print("Using Indic font: Nirmala UI")
+print("Marathi files used:", file_ids)
+
+def is_valid_word(token):
+    return isinstance(token, str) and any(ch.isalpha() for ch in token)
+
+# Build corpus-level token list
+all_words_raw = list(chain.from_iterable(indian.words(fid) for fid in file_ids))
+all_words = [w.lower() for w in all_words_raw if is_valid_word(w)]
+
+if not all_words:
+    raise ValueError("No alphabetic words found in Marathi dataset.")
+
+# 1) Top frequent words
+top_words = FreqDist(all_words).most_common(20)
+words, word_counts = zip(*top_words)
+
+plt.figure(figsize=(12, 5))
+sns.barplot(x=list(words), y=list(word_counts), color="#4C72B0")
+plt.title("Top 20 Most Frequent Words in Marathi Corpus")
+plt.xlabel("Word")
+plt.ylabel("Frequency")
+plt.xticks(rotation=45, ha="right")
+plt.tight_layout()
+plt.show()
+
+# 2) Word-length distribution
+word_lengths = [len(w) for w in all_words]
+
+plt.figure(figsize=(10, 5))
+sns.histplot(word_lengths, bins=range(1, max(word_lengths) + 2), color="teal", kde=False)
+plt.title("Word Length Distribution in Marathi Corpus")
+plt.xlabel("Word Length")
+plt.ylabel("Count")
+plt.tight_layout()
+plt.show()
+
+# 3) POS tag distribution
+all_tagged = list(chain.from_iterable(indian.tagged_words(fid) for fid in file_ids))
+pos_tags = [tag for _, tag in all_tagged if tag]
+top_pos = Counter(pos_tags).most_common(15)
+pos_labels, pos_counts = zip(*top_pos)
+
+plt.figure(figsize=(12, 5))
+sns.barplot(x=list(pos_labels), y=list(pos_counts), color="#DD8452")
+plt.title("Top 15 POS Tags in Marathi Corpus")
+plt.xlabel("POS Tag")
+plt.ylabel("Frequency")
+plt.xticks(rotation=45, ha="right")
+plt.tight_layout()
+plt.show()
+
+# 4) Top bigrams (bounded for speed)
+max_tokens_for_bigrams = 200000
+bigram_words = all_words[:max_tokens_for_bigrams]
+bigram_freq = Counter(zip(bigram_words, bigram_words[1:])).most_common(15)
+bigram_labels = [f"{w1} {w2}" for (w1, w2), _ in bigram_freq]
+bigram_counts = [c for _, c in bigram_freq]
+
+plt.figure(figsize=(14, 5))
+sns.barplot(x=bigram_labels, y=bigram_counts, color="#55A868")
+plt.title("Top 15 Bigrams in Marathi Corpus")
+plt.xlabel("Bigram")
+plt.ylabel("Frequency")
+plt.xticks(rotation=50, ha="right")
+plt.tight_layout()
+plt.show()
+
+# 5) Zipf's law in Marathi corpus (rank-frequency on log-log scale)
+freq_dist = FreqDist(all_words)
+sorted_freqs = np.array(sorted(freq_dist.values(), reverse=True))
+ranks = np.arange(1, len(sorted_freqs) + 1)
+
+# Fit line in log-log space for comparison
+log_ranks = np.log10(ranks)
+log_freqs = np.log10(sorted_freqs)
+slope, intercept = np.polyfit(log_ranks, log_freqs, 1)
+fit_line = 10 ** (intercept + slope * log_ranks)
+
+plt.figure(figsize=(12, 6))
+plt.loglog(ranks, sorted_freqs, marker=".", linestyle="none", alpha=0.6, label="Observed word frequencies")
+plt.loglog(ranks, fit_line, color="#C44E52", linewidth=2, label=f"Fitted trend (slope={slope:.2f})")
+plt.title("Zipf's Law in Marathi Corpus")
+plt.xlabel("Word Rank (log scale)")
+plt.ylabel("Frequency (log scale)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+sentence = "The quick brown fox jumps over the lazy dog. NLTK is a powerful library for natural language processing."
+tokens = nltk.word_tokenize(sentence) # also can use - WordPunctTokenizer
+print(tokens)
+
+tagged = nltk.pos_tag(tokens)
+print(tagged)
+
+sens = nltk.sent_tokenize(sentence)
+print(sens)
+
+from nltk.stem.porter import PorterStemmer
+# more such libraries - SnowballStemmer, LancasterStemmer, RegexpStemmer
+
+from nltk.stem import WordNetLemmatizer
+
+text = "The striped bats are hanging on their feet for best"
+nltk.pos_tag(nltk.word_tokenize(text))
+
+from nltk.corpus import brown, reuters
+brown_sample = ' '.join(brown.words()[:300])
+reuters_sample = ' '.join(reuters.words()[:300])
+
+from nltk.corpus import stopwords
+
+stop_words = set(stopwords.words('english'))
+print(f'Stopwords: {stop_words}')
+brown_words = brown_sample.split()
+reuters_words = reuters_sample.split()
+
+brown_filtered = [w for w in brown_words if w.lower() not in stop_words]
+reuters_filtered = [w for w in reuters_words if w.lower() not in stop_words]
+
+print("Brown - Stopword Removal:")
+print(f"Original: {len(brown_words)} words")
+print(brown_words[:20])
+print(f"After removal: {len(brown_filtered)} words")
+print(brown_filtered[:20])
+
+print("\nReuters - Stopword Removal:")
+print(f"Original: {len(reuters_words)} words")
+print(reuters_words[:20])
+print(f"After removal: {len(reuters_filtered)} words")
+print(reuters_filtered[:20])
+
+stop_words = ['up','down']
+text = 'Hello! What is up?'
+words = nltk.word_tokenize(text)
+
+filtered = [w for w in words if w.lower() not in stop_words]
+print(filtered)
+
+from nltk.tokenize import word_tokenize, sent_tokenize
+
+brown_word_tokens = word_tokenize(brown_sample)
+brown_sent_tokens = sent_tokenize(brown_sample)
+
+reuters_word_tokens = word_tokenize(reuters_sample)
+reuters_sent_tokens = sent_tokenize(reuters_sample)
+
+print("Brown - Tokenization:")
+print(f"Word tokens: {len(brown_word_tokens)}")
+print(f"Sentence tokens: {len(brown_sent_tokens)}")
+print("First 15 word tokens:", brown_word_tokens[:15])
+
+print("\nReuters - Tokenization:")
+print(f"Word tokens: {len(reuters_word_tokens)}")
+print(f"Sentence tokens: {len(reuters_sent_tokens)}")
+print("First 15 word tokens:", reuters_word_tokens[:15])
+
+from nltk.stem import PorterStemmer
+
+stemmer = PorterStemmer()
+
+brown_words_for_stem = [w for w in brown_word_tokens if w.isalpha()][:20]
+reuters_words_for_stem = [w for w in reuters_word_tokens if w.isalpha()][:20]
+
+brown_stemmed = [(w, stemmer.stem(w)) for w in brown_words_for_stem]
+reuters_stemmed = [(w, stemmer.stem(w)) for w in reuters_words_for_stem]
+
+print("Brown - Stemming:")
+for original, stemmed in brown_stemmed[:10]:
+    print(f"{original} -> {stemmed}")
+
+print("\nReuters - Stemming:")
+for original, stemmed in reuters_stemmed[:10]:
+    print(f"{original} -> {stemmed}")
+
+from nltk.stem import WordNetLemmatizer
+
+lemmatizer = WordNetLemmatizer()
+
+brown_lemmatized = [(w, lemmatizer.lemmatize(w)) for w in brown_words_for_stem]
+reuters_lemmatized = [(w, lemmatizer.lemmatize(w)) for w in reuters_words_for_stem]
+
+print("Brown - Lemmatization:")
+for original, lemmatized in brown_lemmatized[:10]:
+    print(f"{original} -> {lemmatized}")
+
+print("\nReuters - Lemmatization:")
+for original, lemmatized in reuters_lemmatized[:10]:
+    print(f"{original} -> {lemmatized}")
+
+from nltk import pos_tag
+
+brown_pos = pos_tag(brown_word_tokens[:30])
+reuters_pos = pos_tag(reuters_word_tokens[:30])
+
+print("Brown - POS Tagging:")
+print(brown_pos)
+
+print("\nReuters - POS Tagging:")
+print(reuters_pos)
+
+import string
+
+brown_no_punct = [w for w in brown_word_tokens if w not in string.punctuation]
+reuters_no_punct = [w for w in reuters_word_tokens if w not in string.punctuation]
+
+print("Brown - Removing Punctuation:")
+print(f"Original: {len(brown_word_tokens)} tokens")
+print(f"After removal: {len(brown_no_punct)} tokens")
+print(brown_no_punct[:20])
+
+print("\nReuters - Removing Punctuation:")
+print(f"Original: {len(reuters_word_tokens)} tokens")
+print(f"After removal: {len(reuters_no_punct)} tokens")
+print(reuters_no_punct[:20])
+
+brown_lower = [w.lower() for w in brown_word_tokens[:30]]
+reuters_lower = [w.lower() for w in reuters_word_tokens[:30]]
+
+print("Brown - Lowercasing:")
+print("Original:", brown_word_tokens[:15])
+print("Lowercased:", brown_lower[:15])
+
+print("\nReuters - Lowercasing:")
+print("Original:", reuters_word_tokens[:15])
+print("Lowercased:", reuters_lower[:15])
+
+brown_split = brown_sample.split()
+reuters_split = reuters_sample.split()
+
+print("Brown - Split:")
+print(f"Total tokens: {len(brown_split)}")
+print(brown_split[:20])
+
+print("\nReuters - Split:")
+print(f"Total tokens: {len(reuters_split)}")
+print(reuters_split[:20])
+
+from nltk import FreqDist, ngrams, collocations
+from nltk.chunk import ne_chunk
+from nltk.corpus import stopwords
+
+# Prepare data for analysis
+brown_tokens = nltk.word_tokenize(brown_sample)
+reuters_tokens = nltk.word_tokenize(reuters_sample)
+
+# Remove stopwords for better analysis
+stop_words = set(stopwords.words('english'))
+brown_filtered = [w.lower() for w in brown_tokens if w.isalpha() and w.lower() not in stop_words]
+reuters_filtered = [w.lower() for w in reuters_tokens if w.isalpha() and w.lower() not in stop_words]
+
+# 1. Frequency Distribution
+print("=" * 60)
+print("1. FREQUENCY DISTRIBUTION - Word Count & Common Words")
+print("=" * 60)
+
+brown_freq = FreqDist(brown_filtered)
+reuters_freq = FreqDist(reuters_filtered)
+
+print("\nBrown Corpus:")
+print(f"Total unique words: {len(brown_freq)}")
+print(f"Most common words: {brown_freq.most_common(10)}")
+
+print("\nReuters Corpus:")
+print(f"Total unique words: {len(reuters_freq)}")
+print(f"Most common words: {reuters_freq.most_common(10)}")
+
+# 2. N-grams - Word Pattern Analysis
+print("\n" + "=" * 60)
+print("2. N-GRAMS - Word Pattern Analysis")
+print("=" * 60)
+
+brown_bigrams = list(ngrams(brown_filtered, 2))
+brown_trigrams = list(ngrams(brown_filtered, 3))
+reuters_bigrams = list(ngrams(reuters_filtered, 2))
+reuters_trigrams = list(ngrams(reuters_filtered, 3))
+
+print("\nBrown Corpus:")
+print(f"Sample Bigrams (2-grams): {brown_bigrams[:10]}")
+print(f"Sample Trigrams (3-grams): {brown_trigrams[:5]}")
+
+print("\nReuters Corpus:")
+print(f"Sample Bigrams (2-grams): {reuters_bigrams[:10]}")
+print(f"Sample Trigrams (3-grams): {reuters_trigrams[:5]}")
+
+# Most common bigrams
+brown_bigram_freq = FreqDist(brown_bigrams)
+reuters_bigram_freq = FreqDist(reuters_bigrams)
+print(f"\nMost common Brown bigrams: {brown_bigram_freq.most_common(5)}")
+print(f"Most common Reuters bigrams: {reuters_bigram_freq.most_common(5)}")
+
+# 3. Collocations - Meaningful Word Pairs
+print("\n" + "=" * 60)
+print("3. COLLOCATIONS - Meaningful Word Pairs")
+print("=" * 60)
+
+# Use bigram collocation finder
+brown_bigram_measures = collocations.BigramAssocMeasures()
+brown_finder = collocations.BigramCollocationFinder.from_words(brown_filtered)
+brown_finder.apply_freq_filter(2)  # Only bigrams that appear at least 2 times
+
+reuters_bigram_measures = collocations.BigramAssocMeasures()
+reuters_finder = collocations.BigramCollocationFinder.from_words(reuters_filtered)
+reuters_finder.apply_freq_filter(2)
+
+print("\nBrown Corpus - Top Collocations (PMI):")
+print(brown_finder.nbest(brown_bigram_measures.pmi, 10))
+
+print("\nReuters Corpus - Top Collocations (PMI):")
+print(reuters_finder.nbest(reuters_bigram_measures.pmi, 10))
+
+# 4. Chunking - Phrase Extraction
+print("\n" + "=" * 60)
+print("4. CHUNKING - Phrase Extraction")
+print("=" * 60)
+
+# POS tag the original tokens (with punctuation)
+brown_pos = nltk.pos_tag(brown_tokens[:50])
+reuters_pos = nltk.pos_tag(reuters_tokens[:50])
+
+# Define chunk grammar for noun phrases
+chunk_grammar = r"""
+  NP: {<DT>?<JJ>*<NN.*>+}  # Noun phrases
+  VP: {<VB.*><NP|PP>}       # Verb phrases
+  PP: {<IN><NP>}            # Prepositional phrases
+"""
+chunk_parser = nltk.RegexpParser(chunk_grammar)
+
+# Chunk the sentences
+brown_chunks = chunk_parser.parse(brown_pos)
+reuters_chunks = chunk_parser.parse(reuters_pos)
+
+print("\nBrown Corpus - Extracted Chunks:")
+for subtree in brown_chunks.subtrees(filter=lambda t: t.label() != 'S'):
+    print(f"{subtree.label()}: {' '.join([word for word, tag in subtree.leaves()])}")
+
+print("\nReuters Corpus - Extracted Chunks:")
+for subtree in reuters_chunks.subtrees(filter=lambda t: t.label() != 'S'):
+    print(f"{subtree.label()}: {' '.join([word for word, tag in subtree.leaves()])}")
+
+print("\n" + "=" * 60)
+print("SUMMARY OF ADDITIONAL FUNCTIONS")
+print("=" * 60)
+print("✓ Frequency Distribution: Analyzed word counts and identified most common words")
+print("✓ N-grams: Extracted bigrams and trigrams for pattern analysis")
+print("✓ Collocations: Found meaningful word pairs using PMI scoring")
+print("✓ Chunking: Extracted noun phrases, verb phrases, and prepositional phrases")
+
+from nltk.corpus import wordnet as wn
+
+print("=" * 60)
+print("WORDNET EXPLORATION")
+print("=" * 60)
+
+# Select some words from our corpora for analysis
+test_words = ['bank', 'good', 'run', 'company', 'market']
+
+for word in test_words:
+    print(f"\n{'='*60}")
+    print(f"Word: '{word.upper()}'")
+    print(f"{'='*60}")
+    
+    synsets = wn.synsets(word)
+    print(f"\nNumber of synsets: {len(synsets)}")
+    
+    for i, syn in enumerate(synsets[:3], 1):
+        print(f"\n{i}. Synset: {syn.name()}")
+        print(f"   POS: {syn.pos()} (n=noun, v=verb, a=adjective, r=adverb)")
+        print(f"   Definition: {syn.definition()}")
+        print(f"   Examples: {syn.examples()}")
+        print(f"   Lemmas: {[lemma.name() for lemma in syn.lemmas()]}")
+    
+    if synsets:
+        first_synset = synsets[0]
+        print(f"\nSynonyms of '{word}' (from first synset):")
+        synonyms = {lemma.name() for lemma in first_synset.lemmas()}
+        print(f"   {synonyms}")
+        
+        print(f"\nAntonyms of '{word}' (if available):")
+        antonyms = set()
+        for lemma in first_synset.lemmas():
+            if lemma.antonyms():
+                antonyms.add(lemma.antonyms()[0].name())
+        print(f"   {antonyms if antonyms else 'No direct antonyms found'}")
+
+print(f"\n{'='*60}")
+print("SEMANTIC SIMILARITY")
+print(f"{'='*60}")
+
+word_pairs = [
+    ('bank', 'river'),
+    ('bank', 'money'),
+    ('good', 'bad'),
+    ('run', 'walk')
+]
+
+for word1, word2 in word_pairs:
+    synsets1 = wn.synsets(word1)
+    synsets2 = wn.synsets(word2)
+    
+    if synsets1 and synsets2:
+        similarity = synsets1[0].wup_similarity(synsets2[0])
+        print(f"\nSimilarity between '{word1}' and '{word2}': {similarity:.3f}")
+        print(f"   {word1}: {synsets1[0].definition()}")
+        print(f"   {word2}: {synsets2[0].definition()}")
+
+print(f"\n{'='*60}")
+print("HYPERNYMS AND HYPONYMS")
+print(f"{'='*60}")
+
+word = 'company'
+synsets = wn.synsets(word)
+if synsets:
+    syn = synsets[0]
+    print(f"\nWord: '{word}'")
+    print(f"Synset: {syn.name()}")
+    print(f"Definition: {syn.definition()}")
+    
+    print(f"\nHypernyms (more general):")
+    for hyper in syn.hypernyms()[:3]:
+        print(f"   - {hyper.name()}: {hyper.definition()}")
+    
+    print(f"\nHyponyms (more specific):")
+    for hypo in syn.hyponyms()[:5]:
+        print(f"   - {hypo.name()}: {hypo.definition()}")
+
+# -------- Required: 5 Visualizations of lexical resource WordNet --------
+viz_words = ['bank', 'market', 'company', 'run', 'good', 'finance', 'money', 'trade']
+
+# 1) Synset count per word
+synset_counts = {w: len(wn.synsets(w)) for w in viz_words}
+plt.figure(figsize=(10, 4))
+plt.bar(list(synset_counts.keys()), list(synset_counts.values()))
+plt.title('WordNet Visualization 1: Number of Synsets per Word')
+plt.xlabel('Word')
+plt.ylabel('Synset Count')
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+
+# 2) POS distribution
+pos_labels = ['n', 'v', 'a', 'r']
+pos_names = {'n': 'Noun', 'v': 'Verb', 'a': 'Adjective', 'r': 'Adverb'}
+pos_totals = {k: 0 for k in pos_labels}
+for w in viz_words:
+    for syn in wn.synsets(w):
+        if syn.pos() in pos_totals:
+            pos_totals[syn.pos()] += 1
+plt.figure(figsize=(8, 4))
+plt.bar([pos_names[k] for k in pos_labels], [pos_totals[k] for k in pos_labels])
+plt.title('WordNet Visualization 2: POS Distribution (Selected Words)')
+plt.xlabel('Part of Speech')
+plt.ylabel('Total Synsets')
+plt.tight_layout()
+plt.show()
+
+# 3) Synonyms vs antonyms count (first synset)
+labels = []
+synonym_counts = []
+antonym_counts = []
+for w in viz_words:
+    synsets = wn.synsets(w)
+    if not synsets:
+        continue
+    first_syn = synsets[0]
+    synonyms = set(lemma.name() for lemma in first_syn.lemmas())
+    antonyms = set()
+    for lemma in first_syn.lemmas():
+        for ant in lemma.antonyms():
+            antonyms.add(ant.name())
+    labels.append(w)
+    synonym_counts.append(len(synonyms))
+    antonym_counts.append(len(antonyms))
+
+x = range(len(labels))
+plt.figure(figsize=(10, 4))
+plt.bar([i - 0.2 for i in x], synonym_counts, width=0.4, label='Synonyms')
+plt.bar([i + 0.2 for i in x], antonym_counts, width=0.4, label='Antonyms')
+plt.xticks(list(x), labels, rotation=30)
+plt.title('WordNet Visualization 3: Synonyms vs Antonyms (First Synset)')
+plt.xlabel('Word')
+plt.ylabel('Count')
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# 4) Hypernym depth
+depth_values = {}
+for w in viz_words:
+    synsets = wn.synsets(w)
+    if synsets:
+        depth_values[w] = synsets[0].max_depth()
+plt.figure(figsize=(10, 4))
+plt.bar(list(depth_values.keys()), list(depth_values.values()))
+plt.title('WordNet Visualization 4: Hypernym Depth (First Synset)')
+plt.xlabel('Word')
+plt.ylabel('Max Hypernym Depth')
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+
+# 5) Semantic similarity matrix (Wu-Palmer)
+heat_words = ['bank', 'money', 'market', 'company', 'run']
+matrix = []
+for w1 in heat_words:
+    row = []
+    syn1 = wn.synsets(w1)
+    for w2 in heat_words:
+        syn2 = wn.synsets(w2)
+        if syn1 and syn2:
+            score = syn1[0].wup_similarity(syn2[0])
+            row.append(0 if score is None else score)
+        else:
+            row.append(0)
+    matrix.append(row)
+
+plt.figure(figsize=(6, 5))
+plt.imshow(matrix, cmap='Blues')
+plt.colorbar(label='Wu-Palmer Similarity')
+plt.xticks(range(len(heat_words)), heat_words, rotation=30)
+plt.yticks(range(len(heat_words)), heat_words)
+plt.title('WordNet Visualization 5: Semantic Similarity Matrix')
+for i in range(len(heat_words)):
+    for j in range(len(heat_words)):
+        plt.text(j, i, f"{matrix[i][j]:.2f}", ha='center', va='center', color='black')
+plt.tight_layout()
+plt.show()
+
+print(f"\n{'='*60}")
+print("WORDNET SUMMARY")
+print(f"{'='*60}")
+print("✓ Explored word senses and definitions")
+print("✓ Found synonyms and antonyms")
+print("✓ Calculated semantic similarity between words")
+print("✓ Identified hypernyms (general) and hyponyms (specific)")
+print("✓ Generated 5 required WordNet visualizations")
+
+from nltk.corpus import names, words, cmudict
+import random
+
+print("=" * 60)
+print("ADDITIONAL LEXICAL RESOURCES")
+print("=" * 60)
+
+# 1. NAMES CORPUS - Common first names
+print("\n" + "=" * 60)
+print("1. NAMES CORPUS")
+print("=" * 60)
+
+male_names = names.words('male.txt')
+female_names = names.words('female.txt')
+
+print(f"\nTotal male names: {len(male_names)}")
+print(f"Total female names: {len(female_names)}")
+print(f"Sample male names: {random.sample(male_names, 10)}")
+print(f"Sample female names: {random.sample(female_names, 10)}")
+
+# Check if a word is a name
+test_words = ['John', 'Alice', 'market', 'company', 'Michael', 'Sarah']
+print("\nName Detection:")
+for word in test_words:
+    is_male = word in male_names
+    is_female = word in female_names
+    if is_male:
+        print(f"   '{word}' is a MALE name")
+    elif is_female:
+        print(f"   '{word}' is a FEMALE name")
+    else:
+        print(f"   '{word}' is NOT a common first name")
+
+# 2. WORDS CORPUS - English dictionary words
+print("\n" + "=" * 60)
+print("2. WORDS CORPUS - English Dictionary")
+print("=" * 60)
+
+english_words = set(words.words())
+print(f"\nTotal words in dictionary: {len(english_words)}")
+print(f"Sample words: {random.sample(list(english_words), 15)}")
+
+# Spell checking
+test_words = ['hello', 'wrld', 'company', 'businss', 'market', 'analyss']
+print("\nSpell Checking:")
+for word in test_words:
+    if word.lower() in english_words:
+        print(f"   ✓ '{word}' is spelled correctly")
+    else:
+        print(f"   ✗ '{word}' is NOT in dictionary (possible misspelling)")
+
+# Find words by pattern
+print("\nWords starting with 'financi' (first 10):")
+financial_words = [w for w in english_words if w.lower().startswith('financi')]
+print(f"   {sorted(financial_words)[:10]}")
+
+# 3. CMU PRONOUNCING DICTIONARY - Phonetic transcriptions
+print("\n" + "=" * 60)
+print("3. CMU PRONOUNCING DICTIONARY")
+print("=" * 60)
+
+pronouncing_dict = cmudict.dict()
+print(f"\nTotal words with pronunciations: {len(pronouncing_dict)}")
+
+# Get pronunciations
+test_words = ['company', 'market', 'finance', 'analysis', 'python']
+print("\nPhonetic Pronunciations:")
+for word in test_words:
+    if word.lower() in pronouncing_dict:
+        pronunciations = pronouncing_dict[word.lower()]
+        print(f"\n   '{word}':")
+        for i, pron in enumerate(pronunciations, 1):
+            print(f"      {i}. {' '.join(pron)}")
+    else:
+        print(f"\n   '{word}': No pronunciation found")
+
+# Find rhyming words
+def get_rhyme_part(phonemes):
+    """Extract the part of pronunciation used for rhyming"""
+    for i, phoneme in enumerate(phonemes):
+        if phoneme[-1].isdigit():  # Find first stressed vowel
+            return phonemes[i:]
+    return phonemes
+
+print("\n" + "=" * 60)
+print("RHYME DETECTION")
+print("=" * 60)
+
+word = 'good'
+if word.lower() in pronouncing_dict:
+    target_pron = pronouncing_dict[word.lower()][0]
+    target_rhyme = get_rhyme_part(target_pron)
+    
+    print(f"\nFinding words that rhyme with '{word}':")
+    print(f"Rhyme pattern: {' '.join(target_rhyme)}")
+    
+    rhymes = []
+    for w, prons in list(pronouncing_dict.items())[:1000]:  # Check first 1000 words
+        for pron in prons:
+            if get_rhyme_part(pron) == target_rhyme and w != word.lower():
+                rhymes.append(w)
+                break
+    
+    print(f"Rhyming words (from first 1000): {rhymes[:10]}")
+
+# Syllable counting
+print("\n" + "=" * 60)
+print("SYLLABLE COUNTING")
+print("=" * 60)
+
+def count_syllables(word):
+    """Count syllables in a word using CMU dict"""
+    if word.lower() in pronouncing_dict:
+        # Count vowel phonemes (those ending in digits)
+        return len([ph for ph in pronouncing_dict[word.lower()][0] if ph[-1].isdigit()])
+    return 0
+
+test_words = ['company', 'business', 'analysis', 'market', 'financial', 'economy']
+print("\nSyllable counts:")
+for word in test_words:
+    syllables = count_syllables(word)
+    print(f"   '{word}': {syllables} syllable(s)")
+
+print("\n" + "=" * 60)
+print("LEXICAL RESOURCES SUMMARY")
+print("=" * 60)
+print("✓ Names Corpus: Identified common first names (male/female)")
+print("✓ Words Corpus: Dictionary lookup and spell checking")
+print("✓ CMU Dictionary: Phonetic transcriptions, rhyme detection, syllable counting")

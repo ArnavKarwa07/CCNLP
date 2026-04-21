@@ -1,0 +1,1891 @@
+# Combined Simplified Assignments 1 to 6
+# Required packages
+pip install -U "numpy<2.0" "scipy<1.13" "ml-dtypes>=0.5.4" spacy gensim nltk transformers torch evaluate rouge_score pandas matplotlib seaborn datasets tqdm
+
+# ===== Assignment 1 and 2 =====
+# Assignment 1 and 2
+# Required packages
+pip install -U "numpy<2.0" "scipy<1.13" "ml-dtypes>=0.5.4" spacy gensim nltk transformers torch evaluate rouge_score pandas matplotlib seaborn datasets tqdm
+
+# %pip install nltk[all]
+
+import matplotlib.pyplot as plt
+
+import nltk
+
+# nltk.download('all')
+
+from nltk.book import *
+
+# List all corpora in NLTK
+import os
+import nltk
+
+corpora_dir = nltk.data.find("corpora")
+all_corpora = os.listdir(corpora_dir)
+all_corpora
+
+text1
+
+sents()
+
+text7
+
+sent7
+
+len(sent7)
+
+len(text7)
+
+len(set(text7))
+
+from nltk.corpus import gutenberg
+
+print(gutenberg.fileids())
+hamlet = gutenberg.words('shakespeare-hamlet.txt')
+print(len(hamlet))
+print(hamlet[1:10])
+
+# Exploration of any 3 Indian corpora/files
+from nltk.corpus import indian
+
+indian_files = indian.fileids()
+print('\nIndian corpus fileids (sample):', indian_files[:12])
+
+selected_indian = [
+    fid for fid in indian_files
+    if any(lang in fid.lower() for lang in ['hindi', 'marathi', 'telugu'])
+][:3]
+if len(selected_indian) < 3:
+    selected_indian = indian_files[:3]
+
+print('\nSelected 3 Indian corpora/files for exploration:')
+for fid in selected_indian:
+    words_list = indian.words(fid)
+    tagged_list = indian.tagged_words(fid)
+    print(f'\nFile: {fid}')
+    print(f'Total tokens: {len(words_list)}')
+    print(f'Unique tokens: {len(set(words_list))}')
+    print('Sample words:', words_list[:20])
+    print('Sample POS tags:', tagged_list[:15])
+
+from collections import Counter
+from itertools import chain
+
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from nltk import FreqDist
+from nltk.corpus import indian
+
+sns.set_style("whitegrid")
+
+# Directly use Nirmala UI for Devanagari rendering
+plt.rcParams["font.family"] = "Nirmala UI"
+plt.rcParams["axes.unicode_minus"] = False
+
+file_ids = [fid for fid in indian.fileids() if "marathi" in fid.lower()]
+if not file_ids:
+    raise ValueError("No Marathi dataset found in nltk.corpus.indian.")
+
+print("Using Indic font: Nirmala UI")
+print("Marathi files used:", file_ids)
+
+def is_valid_word(token):
+    return isinstance(token, str) and any(ch.isalpha() for ch in token)
+
+# Build corpus-level token list
+all_words_raw = list(chain.from_iterable(indian.words(fid) for fid in file_ids))
+all_words = [w.lower() for w in all_words_raw if is_valid_word(w)]
+
+if not all_words:
+    raise ValueError("No alphabetic words found in Marathi dataset.")
+
+# 1) Top frequent words
+top_words = FreqDist(all_words).most_common(20)
+words, word_counts = zip(*top_words)
+
+plt.figure(figsize=(12, 5))
+sns.barplot(x=list(words), y=list(word_counts), color="#4C72B0")
+plt.title("Top 20 Most Frequent Words in Marathi Corpus")
+plt.xlabel("Word")
+plt.ylabel("Frequency")
+plt.xticks(rotation=45, ha="right")
+plt.tight_layout()
+plt.show()
+
+# 2) Word-length distribution
+word_lengths = [len(w) for w in all_words]
+
+plt.figure(figsize=(10, 5))
+sns.histplot(word_lengths, bins=range(1, max(word_lengths) + 2), color="teal", kde=False)
+plt.title("Word Length Distribution in Marathi Corpus")
+plt.xlabel("Word Length")
+plt.ylabel("Count")
+plt.tight_layout()
+plt.show()
+
+# 3) POS tag distribution
+all_tagged = list(chain.from_iterable(indian.tagged_words(fid) for fid in file_ids))
+pos_tags = [tag for _, tag in all_tagged if tag]
+top_pos = Counter(pos_tags).most_common(15)
+pos_labels, pos_counts = zip(*top_pos)
+
+plt.figure(figsize=(12, 5))
+sns.barplot(x=list(pos_labels), y=list(pos_counts), color="#DD8452")
+plt.title("Top 15 POS Tags in Marathi Corpus")
+plt.xlabel("POS Tag")
+plt.ylabel("Frequency")
+plt.xticks(rotation=45, ha="right")
+plt.tight_layout()
+plt.show()
+
+# 4) Top bigrams (bounded for speed)
+max_tokens_for_bigrams = 200000
+bigram_words = all_words[:max_tokens_for_bigrams]
+bigram_freq = Counter(zip(bigram_words, bigram_words[1:])).most_common(15)
+bigram_labels = [f"{w1} {w2}" for (w1, w2), _ in bigram_freq]
+bigram_counts = [c for _, c in bigram_freq]
+
+plt.figure(figsize=(14, 5))
+sns.barplot(x=bigram_labels, y=bigram_counts, color="#55A868")
+plt.title("Top 15 Bigrams in Marathi Corpus")
+plt.xlabel("Bigram")
+plt.ylabel("Frequency")
+plt.xticks(rotation=50, ha="right")
+plt.tight_layout()
+plt.show()
+
+# 5) Zipf's law in Marathi corpus (rank-frequency on log-log scale)
+freq_dist = FreqDist(all_words)
+sorted_freqs = np.array(sorted(freq_dist.values(), reverse=True))
+ranks = np.arange(1, len(sorted_freqs) + 1)
+
+# Fit line in log-log space for comparison
+log_ranks = np.log10(ranks)
+log_freqs = np.log10(sorted_freqs)
+slope, intercept = np.polyfit(log_ranks, log_freqs, 1)
+fit_line = 10 ** (intercept + slope * log_ranks)
+
+plt.figure(figsize=(12, 6))
+plt.loglog(ranks, sorted_freqs, marker=".", linestyle="none", alpha=0.6, label="Observed word frequencies")
+plt.loglog(ranks, fit_line, color="#C44E52", linewidth=2, label=f"Fitted trend (slope={slope:.2f})")
+plt.title("Zipf's Law in Marathi Corpus")
+plt.xlabel("Word Rank (log scale)")
+plt.ylabel("Frequency (log scale)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+sentence = "The quick brown fox jumps over the lazy dog. NLTK is a powerful library for natural language processing."
+tokens = nltk.word_tokenize(sentence) # also can use - WordPunctTokenizer
+print(tokens)
+
+tagged = nltk.pos_tag(tokens)
+print(tagged)
+
+sens = nltk.sent_tokenize(sentence)
+print(sens)
+
+from nltk.stem.porter import PorterStemmer
+# more such libraries - SnowballStemmer, LancasterStemmer, RegexpStemmer
+
+from nltk.stem import WordNetLemmatizer
+
+text = "The striped bats are hanging on their feet for best"
+nltk.pos_tag(nltk.word_tokenize(text))
+
+from nltk.corpus import brown, reuters
+brown_sample = ' '.join(brown.words()[:300])
+reuters_sample = ' '.join(reuters.words()[:300])
+
+from nltk.corpus import stopwords
+
+stop_words = set(stopwords.words('english'))
+print(f'Stopwords: {stop_words}')
+brown_words = brown_sample.split()
+reuters_words = reuters_sample.split()
+
+brown_filtered = [w for w in brown_words if w.lower() not in stop_words]
+reuters_filtered = [w for w in reuters_words if w.lower() not in stop_words]
+
+print("Brown - Stopword Removal:")
+print(f"Original: {len(brown_words)} words")
+print(brown_words[:20])
+print(f"After removal: {len(brown_filtered)} words")
+print(brown_filtered[:20])
+
+print("\nReuters - Stopword Removal:")
+print(f"Original: {len(reuters_words)} words")
+print(reuters_words[:20])
+print(f"After removal: {len(reuters_filtered)} words")
+print(reuters_filtered[:20])
+
+stop_words = ['up','down']
+text = 'Hello! What is up?'
+words = nltk.word_tokenize(text)
+
+filtered = [w for w in words if w.lower() not in stop_words]
+print(filtered)
+
+from nltk.tokenize import word_tokenize, sent_tokenize
+
+brown_word_tokens = word_tokenize(brown_sample)
+brown_sent_tokens = sent_tokenize(brown_sample)
+
+reuters_word_tokens = word_tokenize(reuters_sample)
+reuters_sent_tokens = sent_tokenize(reuters_sample)
+
+print("Brown - Tokenization:")
+print(f"Word tokens: {len(brown_word_tokens)}")
+print(f"Sentence tokens: {len(brown_sent_tokens)}")
+print("First 15 word tokens:", brown_word_tokens[:15])
+
+print("\nReuters - Tokenization:")
+print(f"Word tokens: {len(reuters_word_tokens)}")
+print(f"Sentence tokens: {len(reuters_sent_tokens)}")
+print("First 15 word tokens:", reuters_word_tokens[:15])
+
+from nltk.stem import PorterStemmer
+
+stemmer = PorterStemmer()
+
+brown_words_for_stem = [w for w in brown_word_tokens if w.isalpha()][:20]
+reuters_words_for_stem = [w for w in reuters_word_tokens if w.isalpha()][:20]
+
+brown_stemmed = [(w, stemmer.stem(w)) for w in brown_words_for_stem]
+reuters_stemmed = [(w, stemmer.stem(w)) for w in reuters_words_for_stem]
+
+print("Brown - Stemming:")
+for original, stemmed in brown_stemmed[:10]:
+    print(f"{original} -> {stemmed}")
+
+print("\nReuters - Stemming:")
+for original, stemmed in reuters_stemmed[:10]:
+    print(f"{original} -> {stemmed}")
+
+from nltk.stem import WordNetLemmatizer
+
+lemmatizer = WordNetLemmatizer()
+
+brown_lemmatized = [(w, lemmatizer.lemmatize(w)) for w in brown_words_for_stem]
+reuters_lemmatized = [(w, lemmatizer.lemmatize(w)) for w in reuters_words_for_stem]
+
+print("Brown - Lemmatization:")
+for original, lemmatized in brown_lemmatized[:10]:
+    print(f"{original} -> {lemmatized}")
+
+print("\nReuters - Lemmatization:")
+for original, lemmatized in reuters_lemmatized[:10]:
+    print(f"{original} -> {lemmatized}")
+
+from nltk import pos_tag
+
+brown_pos = pos_tag(brown_word_tokens[:30])
+reuters_pos = pos_tag(reuters_word_tokens[:30])
+
+print("Brown - POS Tagging:")
+print(brown_pos)
+
+print("\nReuters - POS Tagging:")
+print(reuters_pos)
+
+import string
+
+brown_no_punct = [w for w in brown_word_tokens if w not in string.punctuation]
+reuters_no_punct = [w for w in reuters_word_tokens if w not in string.punctuation]
+
+print("Brown - Removing Punctuation:")
+print(f"Original: {len(brown_word_tokens)} tokens")
+print(f"After removal: {len(brown_no_punct)} tokens")
+print(brown_no_punct[:20])
+
+print("\nReuters - Removing Punctuation:")
+print(f"Original: {len(reuters_word_tokens)} tokens")
+print(f"After removal: {len(reuters_no_punct)} tokens")
+print(reuters_no_punct[:20])
+
+brown_lower = [w.lower() for w in brown_word_tokens[:30]]
+reuters_lower = [w.lower() for w in reuters_word_tokens[:30]]
+
+print("Brown - Lowercasing:")
+print("Original:", brown_word_tokens[:15])
+print("Lowercased:", brown_lower[:15])
+
+print("\nReuters - Lowercasing:")
+print("Original:", reuters_word_tokens[:15])
+print("Lowercased:", reuters_lower[:15])
+
+brown_split = brown_sample.split()
+reuters_split = reuters_sample.split()
+
+print("Brown - Split:")
+print(f"Total tokens: {len(brown_split)}")
+print(brown_split[:20])
+
+print("\nReuters - Split:")
+print(f"Total tokens: {len(reuters_split)}")
+print(reuters_split[:20])
+
+from nltk import FreqDist, ngrams, collocations
+from nltk.chunk import ne_chunk
+from nltk.corpus import stopwords
+
+# Prepare data for analysis
+brown_tokens = nltk.word_tokenize(brown_sample)
+reuters_tokens = nltk.word_tokenize(reuters_sample)
+
+# Remove stopwords for better analysis
+stop_words = set(stopwords.words('english'))
+brown_filtered = [w.lower() for w in brown_tokens if w.isalpha() and w.lower() not in stop_words]
+reuters_filtered = [w.lower() for w in reuters_tokens if w.isalpha() and w.lower() not in stop_words]
+
+# 1. Frequency Distribution
+print("=" * 60)
+print("1. FREQUENCY DISTRIBUTION - Word Count & Common Words")
+print("=" * 60)
+
+brown_freq = FreqDist(brown_filtered)
+reuters_freq = FreqDist(reuters_filtered)
+
+print("\nBrown Corpus:")
+print(f"Total unique words: {len(brown_freq)}")
+print(f"Most common words: {brown_freq.most_common(10)}")
+
+print("\nReuters Corpus:")
+print(f"Total unique words: {len(reuters_freq)}")
+print(f"Most common words: {reuters_freq.most_common(10)}")
+
+# 2. N-grams - Word Pattern Analysis
+print("\n" + "=" * 60)
+print("2. N-GRAMS - Word Pattern Analysis")
+print("=" * 60)
+
+brown_bigrams = list(ngrams(brown_filtered, 2))
+brown_trigrams = list(ngrams(brown_filtered, 3))
+reuters_bigrams = list(ngrams(reuters_filtered, 2))
+reuters_trigrams = list(ngrams(reuters_filtered, 3))
+
+print("\nBrown Corpus:")
+print(f"Sample Bigrams (2-grams): {brown_bigrams[:10]}")
+print(f"Sample Trigrams (3-grams): {brown_trigrams[:5]}")
+
+print("\nReuters Corpus:")
+print(f"Sample Bigrams (2-grams): {reuters_bigrams[:10]}")
+print(f"Sample Trigrams (3-grams): {reuters_trigrams[:5]}")
+
+# Most common bigrams
+brown_bigram_freq = FreqDist(brown_bigrams)
+reuters_bigram_freq = FreqDist(reuters_bigrams)
+print(f"\nMost common Brown bigrams: {brown_bigram_freq.most_common(5)}")
+print(f"Most common Reuters bigrams: {reuters_bigram_freq.most_common(5)}")
+
+# 3. Collocations - Meaningful Word Pairs
+print("\n" + "=" * 60)
+print("3. COLLOCATIONS - Meaningful Word Pairs")
+print("=" * 60)
+
+# Use bigram collocation finder
+brown_bigram_measures = collocations.BigramAssocMeasures()
+brown_finder = collocations.BigramCollocationFinder.from_words(brown_filtered)
+brown_finder.apply_freq_filter(2)  # Only bigrams that appear at least 2 times
+
+reuters_bigram_measures = collocations.BigramAssocMeasures()
+reuters_finder = collocations.BigramCollocationFinder.from_words(reuters_filtered)
+reuters_finder.apply_freq_filter(2)
+
+print("\nBrown Corpus - Top Collocations (PMI):")
+print(brown_finder.nbest(brown_bigram_measures.pmi, 10))
+
+print("\nReuters Corpus - Top Collocations (PMI):")
+print(reuters_finder.nbest(reuters_bigram_measures.pmi, 10))
+
+# 4. Chunking - Phrase Extraction
+print("\n" + "=" * 60)
+print("4. CHUNKING - Phrase Extraction")
+print("=" * 60)
+
+# POS tag the original tokens (with punctuation)
+brown_pos = nltk.pos_tag(brown_tokens[:50])
+reuters_pos = nltk.pos_tag(reuters_tokens[:50])
+
+# Define chunk grammar for noun phrases
+chunk_grammar = r"""
+  NP: {<DT>?<JJ>*<NN.*>+}  # Noun phrases
+  VP: {<VB.*><NP|PP>}       # Verb phrases
+  PP: {<IN><NP>}            # Prepositional phrases
+"""
+chunk_parser = nltk.RegexpParser(chunk_grammar)
+
+# Chunk the sentences
+brown_chunks = chunk_parser.parse(brown_pos)
+reuters_chunks = chunk_parser.parse(reuters_pos)
+
+print("\nBrown Corpus - Extracted Chunks:")
+for subtree in brown_chunks.subtrees(filter=lambda t: t.label() != 'S'):
+    print(f"{subtree.label()}: {' '.join([word for word, tag in subtree.leaves()])}")
+
+print("\nReuters Corpus - Extracted Chunks:")
+for subtree in reuters_chunks.subtrees(filter=lambda t: t.label() != 'S'):
+    print(f"{subtree.label()}: {' '.join([word for word, tag in subtree.leaves()])}")
+
+print("\n" + "=" * 60)
+print("SUMMARY OF ADDITIONAL FUNCTIONS")
+print("=" * 60)
+print("✓ Frequency Distribution: Analyzed word counts and identified most common words")
+print("✓ N-grams: Extracted bigrams and trigrams for pattern analysis")
+print("✓ Collocations: Found meaningful word pairs using PMI scoring")
+print("✓ Chunking: Extracted noun phrases, verb phrases, and prepositional phrases")
+
+from nltk.corpus import wordnet as wn
+
+print("=" * 60)
+print("WORDNET EXPLORATION")
+print("=" * 60)
+
+# Select some words from our corpora for analysis
+test_words = ['bank', 'good', 'run', 'company', 'market']
+
+for word in test_words:
+    print(f"\n{'='*60}")
+    print(f"Word: '{word.upper()}'")
+    print(f"{'='*60}")
+    
+    synsets = wn.synsets(word)
+    print(f"\nNumber of synsets: {len(synsets)}")
+    
+    for i, syn in enumerate(synsets[:3], 1):
+        print(f"\n{i}. Synset: {syn.name()}")
+        print(f"   POS: {syn.pos()} (n=noun, v=verb, a=adjective, r=adverb)")
+        print(f"   Definition: {syn.definition()}")
+        print(f"   Examples: {syn.examples()}")
+        print(f"   Lemmas: {[lemma.name() for lemma in syn.lemmas()]}")
+    
+    if synsets:
+        first_synset = synsets[0]
+        print(f"\nSynonyms of '{word}' (from first synset):")
+        synonyms = {lemma.name() for lemma in first_synset.lemmas()}
+        print(f"   {synonyms}")
+        
+        print(f"\nAntonyms of '{word}' (if available):")
+        antonyms = set()
+        for lemma in first_synset.lemmas():
+            if lemma.antonyms():
+                antonyms.add(lemma.antonyms()[0].name())
+        print(f"   {antonyms if antonyms else 'No direct antonyms found'}")
+
+print(f"\n{'='*60}")
+print("SEMANTIC SIMILARITY")
+print(f"{'='*60}")
+
+word_pairs = [
+    ('bank', 'river'),
+    ('bank', 'money'),
+    ('good', 'bad'),
+    ('run', 'walk')
+]
+
+for word1, word2 in word_pairs:
+    synsets1 = wn.synsets(word1)
+    synsets2 = wn.synsets(word2)
+    
+    if synsets1 and synsets2:
+        similarity = synsets1[0].wup_similarity(synsets2[0])
+        print(f"\nSimilarity between '{word1}' and '{word2}': {similarity:.3f}")
+        print(f"   {word1}: {synsets1[0].definition()}")
+        print(f"   {word2}: {synsets2[0].definition()}")
+
+print(f"\n{'='*60}")
+print("HYPERNYMS AND HYPONYMS")
+print(f"{'='*60}")
+
+word = 'company'
+synsets = wn.synsets(word)
+if synsets:
+    syn = synsets[0]
+    print(f"\nWord: '{word}'")
+    print(f"Synset: {syn.name()}")
+    print(f"Definition: {syn.definition()}")
+    
+    print(f"\nHypernyms (more general):")
+    for hyper in syn.hypernyms()[:3]:
+        print(f"   - {hyper.name()}: {hyper.definition()}")
+    
+    print(f"\nHyponyms (more specific):")
+    for hypo in syn.hyponyms()[:5]:
+        print(f"   - {hypo.name()}: {hypo.definition()}")
+
+# -------- Required: 5 Visualizations of lexical resource WordNet --------
+viz_words = ['bank', 'market', 'company', 'run', 'good', 'finance', 'money', 'trade']
+
+# 1) Synset count per word
+synset_counts = {w: len(wn.synsets(w)) for w in viz_words}
+plt.figure(figsize=(10, 4))
+plt.bar(list(synset_counts.keys()), list(synset_counts.values()))
+plt.title('WordNet Visualization 1: Number of Synsets per Word')
+plt.xlabel('Word')
+plt.ylabel('Synset Count')
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+
+# 2) POS distribution
+pos_labels = ['n', 'v', 'a', 'r']
+pos_names = {'n': 'Noun', 'v': 'Verb', 'a': 'Adjective', 'r': 'Adverb'}
+pos_totals = {k: 0 for k in pos_labels}
+for w in viz_words:
+    for syn in wn.synsets(w):
+        if syn.pos() in pos_totals:
+            pos_totals[syn.pos()] += 1
+plt.figure(figsize=(8, 4))
+plt.bar([pos_names[k] for k in pos_labels], [pos_totals[k] for k in pos_labels])
+plt.title('WordNet Visualization 2: POS Distribution (Selected Words)')
+plt.xlabel('Part of Speech')
+plt.ylabel('Total Synsets')
+plt.tight_layout()
+plt.show()
+
+# 3) Synonyms vs antonyms count (first synset)
+labels = []
+synonym_counts = []
+antonym_counts = []
+for w in viz_words:
+    synsets = wn.synsets(w)
+    if not synsets:
+        continue
+    first_syn = synsets[0]
+    synonyms = set(lemma.name() for lemma in first_syn.lemmas())
+    antonyms = set()
+    for lemma in first_syn.lemmas():
+        for ant in lemma.antonyms():
+            antonyms.add(ant.name())
+    labels.append(w)
+    synonym_counts.append(len(synonyms))
+    antonym_counts.append(len(antonyms))
+
+x = range(len(labels))
+plt.figure(figsize=(10, 4))
+plt.bar([i - 0.2 for i in x], synonym_counts, width=0.4, label='Synonyms')
+plt.bar([i + 0.2 for i in x], antonym_counts, width=0.4, label='Antonyms')
+plt.xticks(list(x), labels, rotation=30)
+plt.title('WordNet Visualization 3: Synonyms vs Antonyms (First Synset)')
+plt.xlabel('Word')
+plt.ylabel('Count')
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# 4) Hypernym depth
+depth_values = {}
+for w in viz_words:
+    synsets = wn.synsets(w)
+    if synsets:
+        depth_values[w] = synsets[0].max_depth()
+plt.figure(figsize=(10, 4))
+plt.bar(list(depth_values.keys()), list(depth_values.values()))
+plt.title('WordNet Visualization 4: Hypernym Depth (First Synset)')
+plt.xlabel('Word')
+plt.ylabel('Max Hypernym Depth')
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+
+# 5) Semantic similarity matrix (Wu-Palmer)
+heat_words = ['bank', 'money', 'market', 'company', 'run']
+matrix = []
+for w1 in heat_words:
+    row = []
+    syn1 = wn.synsets(w1)
+    for w2 in heat_words:
+        syn2 = wn.synsets(w2)
+        if syn1 and syn2:
+            score = syn1[0].wup_similarity(syn2[0])
+            row.append(0 if score is None else score)
+        else:
+            row.append(0)
+    matrix.append(row)
+
+plt.figure(figsize=(6, 5))
+plt.imshow(matrix, cmap='Blues')
+plt.colorbar(label='Wu-Palmer Similarity')
+plt.xticks(range(len(heat_words)), heat_words, rotation=30)
+plt.yticks(range(len(heat_words)), heat_words)
+plt.title('WordNet Visualization 5: Semantic Similarity Matrix')
+for i in range(len(heat_words)):
+    for j in range(len(heat_words)):
+        plt.text(j, i, f"{matrix[i][j]:.2f}", ha='center', va='center', color='black')
+plt.tight_layout()
+plt.show()
+
+print(f"\n{'='*60}")
+print("WORDNET SUMMARY")
+print(f"{'='*60}")
+print("✓ Explored word senses and definitions")
+print("✓ Found synonyms and antonyms")
+print("✓ Calculated semantic similarity between words")
+print("✓ Identified hypernyms (general) and hyponyms (specific)")
+print("✓ Generated 5 required WordNet visualizations")
+
+from nltk.corpus import names, words, cmudict
+import random
+
+print("=" * 60)
+print("ADDITIONAL LEXICAL RESOURCES")
+print("=" * 60)
+
+# 1. NAMES CORPUS - Common first names
+print("\n" + "=" * 60)
+print("1. NAMES CORPUS")
+print("=" * 60)
+
+male_names = names.words('male.txt')
+female_names = names.words('female.txt')
+
+print(f"\nTotal male names: {len(male_names)}")
+print(f"Total female names: {len(female_names)}")
+print(f"Sample male names: {random.sample(male_names, 10)}")
+print(f"Sample female names: {random.sample(female_names, 10)}")
+
+# Check if a word is a name
+test_words = ['John', 'Alice', 'market', 'company', 'Michael', 'Sarah']
+print("\nName Detection:")
+for word in test_words:
+    is_male = word in male_names
+    is_female = word in female_names
+    if is_male:
+        print(f"   '{word}' is a MALE name")
+    elif is_female:
+        print(f"   '{word}' is a FEMALE name")
+    else:
+        print(f"   '{word}' is NOT a common first name")
+
+# 2. WORDS CORPUS - English dictionary words
+print("\n" + "=" * 60)
+print("2. WORDS CORPUS - English Dictionary")
+print("=" * 60)
+
+english_words = set(words.words())
+print(f"\nTotal words in dictionary: {len(english_words)}")
+print(f"Sample words: {random.sample(list(english_words), 15)}")
+
+# Spell checking
+test_words = ['hello', 'wrld', 'company', 'businss', 'market', 'analyss']
+print("\nSpell Checking:")
+for word in test_words:
+    if word.lower() in english_words:
+        print(f"   ✓ '{word}' is spelled correctly")
+    else:
+        print(f"   ✗ '{word}' is NOT in dictionary (possible misspelling)")
+
+# Find words by pattern
+print("\nWords starting with 'financi' (first 10):")
+financial_words = [w for w in english_words if w.lower().startswith('financi')]
+print(f"   {sorted(financial_words)[:10]}")
+
+# 3. CMU PRONOUNCING DICTIONARY - Phonetic transcriptions
+print("\n" + "=" * 60)
+print("3. CMU PRONOUNCING DICTIONARY")
+print("=" * 60)
+
+pronouncing_dict = cmudict.dict()
+print(f"\nTotal words with pronunciations: {len(pronouncing_dict)}")
+
+# Get pronunciations
+test_words = ['company', 'market', 'finance', 'analysis', 'python']
+print("\nPhonetic Pronunciations:")
+for word in test_words:
+    if word.lower() in pronouncing_dict:
+        pronunciations = pronouncing_dict[word.lower()]
+        print(f"\n   '{word}':")
+        for i, pron in enumerate(pronunciations, 1):
+            print(f"      {i}. {' '.join(pron)}")
+    else:
+        print(f"\n   '{word}': No pronunciation found")
+
+# Find rhyming words
+def get_rhyme_part(phonemes):
+    """Extract the part of pronunciation used for rhyming"""
+    for i, phoneme in enumerate(phonemes):
+        if phoneme[-1].isdigit():  # Find first stressed vowel
+            return phonemes[i:]
+    return phonemes
+
+print("\n" + "=" * 60)
+print("RHYME DETECTION")
+print("=" * 60)
+
+word = 'good'
+if word.lower() in pronouncing_dict:
+    target_pron = pronouncing_dict[word.lower()][0]
+    target_rhyme = get_rhyme_part(target_pron)
+    
+    print(f"\nFinding words that rhyme with '{word}':")
+    print(f"Rhyme pattern: {' '.join(target_rhyme)}")
+    
+    rhymes = []
+    for w, prons in list(pronouncing_dict.items())[:1000]:  # Check first 1000 words
+        for pron in prons:
+            if get_rhyme_part(pron) == target_rhyme and w != word.lower():
+                rhymes.append(w)
+                break
+    
+    print(f"Rhyming words (from first 1000): {rhymes[:10]}")
+
+# Syllable counting
+print("\n" + "=" * 60)
+print("SYLLABLE COUNTING")
+print("=" * 60)
+
+def count_syllables(word):
+    """Count syllables in a word using CMU dict"""
+    if word.lower() in pronouncing_dict:
+        # Count vowel phonemes (those ending in digits)
+        return len([ph for ph in pronouncing_dict[word.lower()][0] if ph[-1].isdigit()])
+    return 0
+
+test_words = ['company', 'business', 'analysis', 'market', 'financial', 'economy']
+print("\nSyllable counts:")
+for word in test_words:
+    syllables = count_syllables(word)
+    print(f"   '{word}': {syllables} syllable(s)")
+
+print("\n" + "=" * 60)
+print("LEXICAL RESOURCES SUMMARY")
+print("=" * 60)
+print("✓ Names Corpus: Identified common first names (male/female)")
+print("✓ Words Corpus: Dictionary lookup and spell checking")
+print("✓ CMU Dictionary: Phonetic transcriptions, rhyme detection, syllable counting")
+
+# ===== Assignment 3 =====
+# Assignment 3
+# Required packages
+pip install -U "numpy<2.0" "scipy<1.13" "ml-dtypes>=0.5.4" spacy gensim nltk transformers torch evaluate rouge_score pandas matplotlib seaborn datasets tqdm
+
+# Import libraries
+import spacy
+from gensim import corpora
+import numpy as np
+from collections import Counter
+from nltk.util import ngrams
+
+# Sample documents
+doc1 = "cats and dogs are not allowed"
+doc2 = "cats and dogs are antagonistic"
+documents = [doc1, doc2]
+print("Document 1:", doc1)
+print("Document 2:", doc2)
+
+# ============ BAG OF WORDS (BoW) MODEL ============
+
+# Tokenize documents - break text into individual words
+doc1_tokens = doc1.lower().split()
+doc2_tokens = doc2.lower().split()
+print("Tokenized Document 1:", doc1_tokens)
+print("Tokenized Document 2:", doc2_tokens)
+
+# Create vocabulary - unique words across all documents
+vocabulary = sorted(set(doc1_tokens + doc2_tokens))
+print("\nVocabulary (all unique words):", vocabulary)
+print("Vocabulary size:", len(vocabulary))
+
+# Create feature vectors using built-in Counter
+def create_bow_vector(tokens, vocab):
+    token_counts = Counter(tokens)
+    return [token_counts[word] for word in vocab]
+
+vector1 = create_bow_vector(doc1_tokens, vocabulary)
+vector2 = create_bow_vector(doc2_tokens, vocabulary)
+
+print("\nFeature Vector for Document 1:")
+print(vector1)
+print("\nFeature Vector for Document 2:")
+print(vector2)
+
+# Display word-to-count mapping
+print("\nWord-to-count mapping for Doc1:")
+for word, count in zip(vocabulary, vector1):
+    if count > 0:
+        print(f"  {word}: {count}")
+
+# ============ GENSIM BoW MODEL ============
+
+# Create Gensim Dictionary - maps each unique word to an ID
+tokenized_docs = [doc1_tokens, doc2_tokens]
+dictionary = corpora.Dictionary(tokenized_docs)
+
+print("\nGensim Dictionary (word -> ID mapping):")
+print(dictionary.token2id)
+print(f"\nDictionary size: {len(dictionary)}")
+
+# doc2bow - converts document to bag of words representation (word_id, frequency)
+bow_doc1 = dictionary.doc2bow(doc1_tokens)
+bow_doc2 = dictionary.doc2bow(doc2_tokens)
+
+print("\ndoc2bow for Document 1 (word_id, count):")
+print(bow_doc1)
+print("\ndoc2bow for Document 2 (word_id, count):")
+print(bow_doc2)
+
+# Gensim Function 2: doc2idx - map tokens to dictionary IDs (-1 for OOV)
+doc1_ids = dictionary.doc2idx(doc1_tokens)
+doc2_ids = dictionary.doc2idx(doc2_tokens)
+print("\ndoc2idx for Document 1:", doc1_ids)
+print("doc2idx for Document 2:", doc2_ids)
+
+# Gensim Function 3: add_documents - update dictionary with new text
+extra_docs = [["cats", "and", "birds", "coexist"]]
+dictionary_updated = corpora.Dictionary(tokenized_docs)
+dictionary_updated.add_documents(extra_docs)
+print("\nUpdated dictionary size after add_documents:", len(dictionary_updated))
+print("Updated token2id:", dictionary_updated.token2id)
+
+# Decode to show which words the IDs represent
+print("\nDecoded BoW for Document 1:")
+for word_id, freq in bow_doc1:
+    print(f"  {dictionary[word_id]}: {freq}")
+
+# ============ N-GRAMS MODEL ============
+
+texts = [doc1_tokens, doc2_tokens]
+
+# ngrams with probabilities
+def get_ngram_probabilities(data, n=2):
+    all_tokens = [word for sublist in data for word in sublist]
+    # generate ngrams
+    n_grams = list(ngrams(all_tokens, n))
+    n_minus_1_grams = list(ngrams(all_tokens, n - 1))
+
+    counts = Counter(n_grams)
+    history_counts = Counter(n_minus_1_grams)
+
+    print(f"\nTop {n}-gram Probabilities:")
+    for gram in list(counts.keys())[:5]:
+        # P(word | history) = count(history + word) / count(history)
+        history = gram[:-1]
+        prob = counts[gram] / history_counts[history]
+        print(f"P({gram[-1]} | {' '.join(history)}) = {prob:.4f}")
+
+get_ngram_probabilities(texts, n=2)
+
+# Trigrams (3-grams) probabilities
+get_ngram_probabilities(texts, n=3)
+
+# ============ NEXT WORD PREDICTION USING N-GRAMS ============
+
+def build_next_word_probability_model(data, n=2):
+    all_tokens = [word for sublist in data for word in sublist]
+    n_grams = list(ngrams(all_tokens, n))
+    n_minus_1_grams = list(ngrams(all_tokens, n - 1))
+
+    counts = Counter(n_grams)
+    history_counts = Counter(n_minus_1_grams)
+
+    prob_model = {}
+    for gram, count in counts.items():
+        history = gram[:-1]
+        next_word = gram[-1]
+        prob = count / history_counts[history]
+        if history not in prob_model:
+            prob_model[history] = {}
+        prob_model[history][next_word] = prob
+
+    return prob_model, counts
+
+bigram_prob_model, bigram_counts = build_next_word_probability_model(texts, n=2)
+
+print("\n========== NEXT WORD PREDICTION MODEL ==========")
+for context, next_words in bigram_prob_model.items():
+    print(f"\nP(next_word | {' '.join(context)}):")
+    for word, prob in next_words.items():
+        print(f"  P({word} | {' '.join(context)}) = {prob:.3f}")
+
+# Predict next word given context using probability model
+def predict_next_word(context, prob_model):
+    context_tuple = tuple(context.lower().split())
+
+    if context_tuple not in prob_model:
+        return None, None, "Context not found in model"
+
+    next_words = prob_model[context_tuple]
+    predicted_word = max(next_words, key=next_words.get)
+    probability = next_words[predicted_word]
+
+    return predicted_word, probability, None
+
+print("\n========== NEXT WORD PREDICTIONS ==========")
+
+# For bigram model, context length must be 1 word
+test_contexts = ["cats", "and", "dogs", "are"]
+
+for context in test_contexts:
+    predicted, prob, message = predict_next_word(context, bigram_prob_model)
+    if predicted:
+        print(f"\nContext: '{context}'")
+        print(f"Predicted next word: '{predicted}'")
+        print(f"Probability: {prob:.3f}")
+    else:
+        print(f"\nContext: '{context}' - {message}")
+
+# Build trigram model for more context-aware predictions
+trigram_prob_model, trigram_counts = build_next_word_probability_model(texts, n=3)
+
+print("\n========== TRIGRAM PREDICTIONS (2-word context) ==========")
+for context, next_words in trigram_prob_model.items():
+    print(f"\nP(next_word | {' '.join(context)}):")
+    for word, prob in next_words.items():
+        print(f"P({word} | {' '.join(context)}) = {prob:.3f}")
+
+# Test with 2-word contexts for trigram model
+test_contexts_trigram = ["cats and", "and dogs", "dogs are"]
+
+print("\nPredictions:")
+for context in test_contexts_trigram:
+    predicted, prob, message = predict_next_word(context, trigram_prob_model)
+    if predicted:
+        print(f"\nContext: '{context}'")
+        print(f"Predicted next word: '{predicted}'")
+        print(f"Probability: {prob:.3f}")
+    else:
+        print(f"\nContext: '{context}' - {message}")
+
+# ============ USING SPACY FOR BoW ============
+
+# Load spaCy model for text processing (with graceful fallback)
+try:
+    nlp = spacy.load("en_core_web_sm")
+except Exception:
+    try:
+        from spacy.cli import download
+        download("en_core_web_sm")
+        nlp = spacy.load("en_core_web_sm")
+    except Exception:
+        nlp = spacy.blank("en")
+
+# Process documents with spaCy
+doc1_spacy = nlp(doc1)
+doc2_spacy = nlp(doc2)
+
+# spaCy Function 1: Tokenization
+doc1_tokens_spacy = [token.text.lower() for token in doc1_spacy if not token.is_punct]
+doc2_tokens_spacy = [token.text.lower() for token in doc2_spacy if not token.is_punct]
+
+print("\n========== SPACY PROCESSING ==========")
+print("\nSpacy tokens Doc1:", doc1_tokens_spacy)
+print("Spacy tokens Doc2:", doc2_tokens_spacy)
+
+# spaCy Function 2: Lemmatization (token.lemma_)
+lemmas_doc1 = [token.lemma_ if token.lemma_ else token.text.lower() for token in doc1_spacy if not token.is_punct]
+lemmas_doc2 = [token.lemma_ if token.lemma_ else token.text.lower() for token in doc2_spacy if not token.is_punct]
+print("\nSpacy lemmas Doc1:", lemmas_doc1)
+print("Spacy lemmas Doc2:", lemmas_doc2)
+
+# spaCy Function 3: POS tagging (token.pos_)
+pos_doc1 = [(token.text, token.pos_ if token.pos_ else 'N/A') for token in doc1_spacy if not token.is_punct]
+pos_doc2 = [(token.text, token.pos_ if token.pos_ else 'N/A') for token in doc2_spacy if not token.is_punct]
+print("\nSpacy POS tags Doc1:", pos_doc1)
+print("Spacy POS tags Doc2:", pos_doc2)
+
+# Create vocabulary from spaCy tokens
+vocab_spacy = sorted(set(doc1_tokens_spacy + doc2_tokens_spacy))
+print("\nSpacy Vocabulary:", vocab_spacy)
+
+# Create BoW vectors
+vector1_spacy = create_bow_vector(doc1_tokens_spacy, vocab_spacy)
+vector2_spacy = create_bow_vector(doc2_tokens_spacy, vocab_spacy)
+
+print("\nSpacy BoW Vector Doc1:", vector1_spacy)
+print("Spacy BoW Vector Doc2:", vector2_spacy)
+
+# ============ WORD2VEC DEMONSTRATION ============
+
+from gensim.models import Word2Vec
+
+# Prepare training data - list of tokenized sentences
+training_data = [doc1_tokens, doc2_tokens]
+
+# Train Word2Vec model
+word2vec_model = Word2Vec(sentences=training_data, vector_size=10, window=2, min_count=1, sg=0)
+
+print("\n========== WORD2VEC ==========")
+print("\nWord2Vec Vocabulary:", list(word2vec_model.wv.index_to_key))
+
+# Get vector representation for words
+print("\nVector for 'cats':", word2vec_model.wv['cats'])
+print("Vector for 'dogs':", word2vec_model.wv['dogs'])
+
+# Additional Gensim functions on Word2Vec vectors
+print("\nSimilarity(cats, dogs):", round(word2vec_model.wv.similarity('cats', 'dogs'), 4))
+print("Most similar to 'cats':", word2vec_model.wv.most_similar('cats', topn=3))
+
+print("\nVector dimensions:", word2vec_model.wv.vector_size)
+
+# ============ DOC2VEC DEMONSTRATION ============
+
+from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+
+# Prepare tagged documents - each document needs a unique tag/ID
+tagged_docs = [
+    TaggedDocument(words=doc1_tokens, tags=['DOC1']),
+    TaggedDocument(words=doc2_tokens, tags=['DOC2'])
+]
+
+# Train Doc2Vec model - creates vector representations for entire documents
+# vector_size: dimension of document vectors
+# min_count: ignores words with frequency less than this
+# epochs: number of training iterations
+doc2vec_model = Doc2Vec(tagged_docs, vector_size=10, min_count=1, epochs=40)
+
+print("\n========== DOC2VEC ==========")
+print("\nDoc2Vec Vocabulary:", list(doc2vec_model.wv.index_to_key))
+
+# Get vector representation for documents
+doc1_vector = doc2vec_model.dv['DOC1']
+doc2_vector = doc2vec_model.dv['DOC2']
+
+print("\nDocument 1 vector:", doc1_vector)
+print("Document 2 vector:", doc2_vector)
+
+# Calculate similarity between documents using cosine similarity
+from numpy import dot
+from numpy.linalg import norm
+
+cosine_sim = dot(doc1_vector, doc2_vector) / (norm(doc1_vector) * norm(doc2_vector))
+print(f"\nCosine similarity between documents: {cosine_sim:.4f}")
+
+# ===== Assignment 4 =====
+# Assignment 4
+# Required packages
+pip install -U "numpy<2.0" "scipy<1.13" "ml-dtypes>=0.5.4" spacy gensim nltk transformers torch evaluate rouge_score pandas matplotlib seaborn datasets tqdm
+
+import nltk
+from collections import Counter
+from nltk import ne_chunk, pos_tag, sent_tokenize, word_tokenize
+from nltk.corpus import ieer
+
+# Pick any one IEER document (no search for best passage)
+file_id = ieer.fileids()[0]
+text = ieer.raw(file_id)
+
+# Use a small passage from that document
+sentences = sent_tokenize(text)
+passage = " ".join(sentences[:8]) if len(sentences) >= 8 else text
+
+print(f"IEER file: {file_id}")
+print("\nPASSAGE:\n")
+print(passage)
+
+# 2) Run NER
+tokens = word_tokenize(passage)
+tagged_tokens = pos_tag(tokens)
+ner_tree = ne_chunk(tagged_tokens, binary=False)
+
+# 3) Explore different NER tags and extracted entities
+entities = []
+for chunk in ner_tree:
+    if hasattr(chunk, "label"):
+        label = chunk.label()
+        entity_text = " ".join(word for word, _ in chunk.leaves())
+        entities.append((entity_text, label))
+
+label_counts = Counter(label for _, label in entities)
+
+print("\n\nEXTRACTED ENTITIES:")
+for entity_text, label in entities:
+    print(f"- {entity_text:<35} -> {label}")
+
+print("\nTAGS FOUND (and counts):")
+for label, count in sorted(label_counts.items()):
+    print(f"- {label}: {count}")
+
+# Visualization of tag distribution
+import matplotlib.pyplot as plt
+labels, counts = zip(*sorted(label_counts.items()))
+plt.figure(figsize=(10, 6))
+plt.bar(labels, counts, color="skyblue")
+plt.xlabel("NER Tag")
+plt.ylabel("Count")
+plt.title("Distribution of NER Tags in Sample Passage")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+# Highlight coverage of NER tags in text with different colors
+from termcolor import colored
+def highlight_entities(text, entities):
+    for entity_text, label in entities:
+        color = "red" if label == "PERSON" else "green" if label == "ORGANIZATION" else "yellow" if label in {"GPE", "LOCATION", "FACILITY", "GSP"} else "cyan"
+        text = text.replace(entity_text, colored(entity_text, color))
+    return text
+highlighted_passage = highlight_entities(passage, entities)
+print("\nHIGHLIGHTED PASSAGE:\n")
+print(highlighted_passage)
+
+from nltk.corpus import ieer
+
+# Build a sample passage from multiple IEER files for qualitative inspection
+target_tags = {"PERSON", "ORGANIZATION", "GPE", "LOCATION", "FACILITY", "GSP"}
+ieer_files = ieer.fileids()
+
+candidates = []
+for fid in ieer_files:
+    text = ieer.raw(fid)
+    sents = sent_tokenize(text)
+    current_passage = " ".join(sents[:10]) if len(sents) >= 10 else text
+
+    toks = word_tokenize(current_passage)
+    pos = pos_tag(toks)
+    tree = ne_chunk(pos, binary=False)
+    labels = {ch.label() for ch in tree if hasattr(ch, "label")}
+    score = len(labels & target_tags)
+
+    candidates.append({
+        "file": fid,
+        "passage": current_passage,
+        "labels": labels,
+        "score": score,
+    })
+
+# Keep this for exploration only (not used for metric evaluation)
+candidates = sorted(candidates, key=lambda x: x["score"], reverse=True)
+top_k = candidates[:10]
+
+selected_files = [item["file"] for item in top_k]
+passage = " ".join(item["passage"] for item in top_k)
+
+combined_labels = set()
+for item in top_k:
+    combined_labels.update(item["labels"])
+
+current_file = ", ".join(selected_files)
+print("IEER files used for exploration:", selected_files)
+print("\nTAGS FOUND:", sorted(combined_labels))
+print("MISSING:", sorted(target_tags - combined_labels))
+print("\nPASSAGE:\n")
+print(passage)
+
+# Build real ground truth from IEER annotations (no prediction fallback)
+from nltk.tree import Tree
+
+def ieer_tree_to_tokens_iob(node):
+    tokens_out = []
+    tags_out = []
+
+    for child in node:
+        if isinstance(child, Tree):
+            label = child.label()
+            child_tokens = [str(tok) for tok in child.leaves()]
+            for i, tok in enumerate(child_tokens):
+                prefix = "B" if i == 0 else "I"
+                tokens_out.append(tok)
+                tags_out.append(f"{prefix}-{label}")
+        else:
+            tokens_out.append(str(child))
+            tags_out.append("O")
+
+    return tokens_out, tags_out
+
+# Use an evaluation set that is independent of model predictions
+eval_file_count = 10
+eval_files = ieer.fileids()[:eval_file_count]
+
+all_gt_tokens = []
+all_gt_iob = []
+
+for fid in eval_files:
+    parsed_docs = ieer.parsed_docs(fid)
+    if len(parsed_docs) == 0:
+        continue
+    doc = parsed_docs[0]
+    toks, iob = ieer_tree_to_tokens_iob(doc.text)
+    all_gt_tokens.extend(toks)
+    all_gt_iob.extend(iob)
+
+# Create the evaluation span from annotated tokens
+MAX_TOKENS = 1200
+passage_tokens = all_gt_tokens[:MAX_TOKENS]
+ground_truth_iob = all_gt_iob[:MAX_TOKENS]
+passage = " ".join(passage_tokens)
+
+print(f"Evaluation files used: {eval_files}")
+print(f"Ground-truth tokens prepared: {len(ground_truth_iob)}")
+print("Using real IEER annotations as ground truth (ground_truth_iob).")
+
+# 2) Run NER + entity-level evaluation (seqeval)
+from nltk.chunk import tree2conlltags
+
+try:
+    from seqeval.metrics import precision_score, recall_score, f1_score
+except ImportError as exc:
+    raise ImportError(
+        "seqeval is required for entity-level metrics. Install it with: pip install seqeval"
+    ) from exc
+
+# Prefer annotated token stream when available to keep strict alignment with ground truth
+tokens = list(globals().get("passage_tokens", word_tokenize(passage)))
+tagged_tokens = pos_tag(tokens)
+ner_tree = ne_chunk(tagged_tokens, binary=False)
+
+# Flatten NLTK tree output to IOB tags
+pred_iob_tags = [tag for _, _, tag in tree2conlltags(ner_tree)]
+
+# Small alignment map in case your ground truth uses different entity names
+TAG_ALIGNMENT = {
+    "B-PERSON": "B-PER",
+    "I-PERSON": "I-PER",
+    "B-ORGANIZATION": "B-ORG",
+    "I-ORGANIZATION": "I-ORG",
+    "B-LOCATION": "B-LOC",
+    "I-LOCATION": "I-LOC",
+    "B-FACILITY": "B-FAC",
+    "I-FACILITY": "I-FAC",
+    "B-GSP": "B-LOC",
+    "I-GSP": "I-LOC",
+    "B-GPE": "B-LOC",
+    "I-GPE": "I-LOC",
+    "O": "O",
+}
+
+def align_tag(tag):
+    return TAG_ALIGNMENT.get(tag, tag)
+
+pred_iob_tags_aligned = [align_tag(tag) for tag in pred_iob_tags]
+
+# Accept ground truth in one of these formats:
+# 1) ground_truth_iob / ground_truth_labels: list[str] IOB tags (preferred)
+# 2) ground_truth_tree: nltk.Tree
+gt_iob = globals().get("ground_truth_iob")
+gt_labels = globals().get("ground_truth_labels")
+gt_tree = globals().get("ground_truth_tree")
+
+if gt_iob is not None:
+    true_iob_tags = list(gt_iob)
+elif gt_labels is not None:
+    true_iob_tags = list(gt_labels)
+elif gt_tree is not None:
+    true_iob_tags = [tag for _, _, tag in tree2conlltags(gt_tree)]
+else:
+    raise ValueError(
+        "Provide ground truth as 'ground_truth_iob'/'ground_truth_labels' (IOB tags) or 'ground_truth_tree' (nltk.Tree)."
+    )
+
+true_iob_tags_aligned = [align_tag(tag) for tag in true_iob_tags]
+
+if len(true_iob_tags_aligned) != len(pred_iob_tags_aligned):
+    raise ValueError(
+        f"Length mismatch: y_true has {len(true_iob_tags_aligned)} tags but y_pred has {len(pred_iob_tags_aligned)} tags."
+    )
+
+# seqeval expects a list of sequences
+y_true = [true_iob_tags_aligned]
+y_pred = [pred_iob_tags_aligned]
+
+precision = precision_score(y_true, y_pred)
+recall = recall_score(y_true, y_pred)
+f1 = f1_score(y_true, y_pred)
+
+print("\nEntity-level NER Evaluation (seqeval)")
+print(f"Precision: {precision:.4f}")
+print(f"Recall:    {recall:.4f}")
+print(f"F1-Score:  {f1:.4f}")
+
+# 3) Explore different NER tags and extracted entities
+entities = []
+for chunk in ner_tree:
+    if hasattr(chunk, "label"):
+        label = chunk.label()
+        entity_text = " ".join(word for word, _ in chunk.leaves())
+        entities.append((entity_text, label))
+
+label_counts = Counter(label for _, label in entities)
+
+print("\n\nEXTRACTED ENTITIES:")
+for entity_text, label in entities:
+    print(f"- {entity_text:<35} -> {label}")
+
+print("\nTAGS FOUND (and counts):")
+for label, count in sorted(label_counts.items()):
+    print(f"- {label}: {count}")
+
+# Visualization of tag distribution
+import matplotlib.pyplot as plt
+labels, counts = zip(*sorted(label_counts.items()))
+plt.figure(figsize=(10, 6))
+plt.bar(labels, counts, color="skyblue")
+plt.xlabel("NER Tag")
+plt.ylabel("Count")
+plt.title("Distribution of NER Tags in Sample Passage")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+# Highlight coverage of NER tags in text with different colors
+from termcolor import colored
+def highlight_entities(text, entities):
+    for entity_text, label in entities:
+        color = "red" if label == "PERSON" else "green" if label == "ORGANIZATION" else "yellow" if label in {"GPE", "LOCATION", "FACILITY", "GSP"} else "cyan"
+        text = text.replace(entity_text, colored(entity_text, color))
+    return text
+highlighted_passage = highlight_entities(passage, entities)
+print("\nHIGHLIGHTED PASSAGE:\n")
+print(highlighted_passage)
+
+entity_freq = Counter(entity_text for entity_text, _ in entities)
+
+if entity_freq:
+    top_n = 12
+    top_entities = entity_freq.most_common(top_n)
+    names = [name for name, _ in top_entities]
+    values = [count for _, count in top_entities]
+
+    plt.figure(figsize=(12, 6))
+    plt.barh(names[::-1], values[::-1], color="teal")
+    plt.xlabel("Frequency")
+    plt.ylabel("Entity Text")
+    plt.title(f"Top {min(top_n, len(top_entities))} Extracted Entities")
+    plt.tight_layout()
+    plt.show()
+else:
+    print("No entities available to visualize.")
+
+def iob_to_type(tag):
+    if tag == "O":
+        return "O"
+    if "-" in tag:
+        return tag.split("-", 1)[1]
+    return tag
+
+if "true_iob_tags_aligned" in globals() and "pred_iob_tags_aligned" in globals():
+    true_types = [iob_to_type(tag) for tag in true_iob_tags_aligned]
+    pred_types = [iob_to_type(tag) for tag in pred_iob_tags_aligned]
+
+    labels = sorted(set(true_types) | set(pred_types))
+    label_to_idx = {label: idx for idx, label in enumerate(labels)}
+
+    matrix = [[0 for _ in labels] for _ in labels]
+    for t, p in zip(true_types, pred_types):
+        matrix[label_to_idx[t]][label_to_idx[p]] += 1
+
+    plt.figure(figsize=(9, 7))
+    plt.imshow(matrix, cmap="Blues", aspect="auto")
+    plt.colorbar(label="Token Count")
+    plt.xticks(range(len(labels)), labels, rotation=45, ha="right")
+    plt.yticks(range(len(labels)), labels)
+    plt.xlabel("Predicted Entity Type")
+    plt.ylabel("True Entity Type")
+    plt.title("NER Entity-Type Confusion Matrix")
+
+    for i in range(len(labels)):
+        for j in range(len(labels)):
+            value = matrix[i][j]
+            if value > 0:
+                plt.text(j, i, str(value), ha="center", va="center", fontsize=8)
+
+    plt.tight_layout()
+    plt.show()
+else:
+    print("Run the evaluation cell first to generate true/predicted IOB tags.")
+
+# ===== Assignment 5 =====
+# Assignment 5
+# Required packages
+pip install -U "numpy<2.0" "scipy<1.13" "ml-dtypes>=0.5.4" spacy gensim nltk transformers torch evaluate rouge_score pandas matplotlib seaborn datasets tqdm
+
+import nltk
+from nltk.corpus import gutenberg, brown, inaugural
+from transformers import pipeline
+import evaluate
+import pandas as pd
+
+# -----------------------------
+# RUN 1: Model 1 + Corpus 1
+# -----------------------------
+file_id_1 = 'melville-moby_dick.txt'
+raw_text_1 = gutenberg.raw(file_id_1)
+corpus_label_1 = f'Gutenberg: {file_id_1}'
+
+input_text_1 = raw_text_1
+print('Selected corpus:', corpus_label_1)
+print('Input length:', len(input_text_1))
+
+summarizer_1 = pipeline('summarization', model='sshleifer/distilbart-cnn-12-6')
+
+safe_input_text_1 = summarizer_1.tokenizer.decode(
+    summarizer_1.tokenizer.encode(input_text_1, truncation=True, max_length=1000),
+    skip_special_tokens=True
+)
+
+descriptive_summary_raw_1 = summarizer_1(
+    f"This text is about: {safe_input_text_1}",
+    max_length=30,
+    min_length=10,
+    do_sample=False
+)[0]['summary_text']
+descriptive_summary_1 = f"This document provides an overview of {descriptive_summary_raw_1.strip()}."
+
+informative_summary_1 = summarizer_1(
+    safe_input_text_1,
+    max_length=250,
+    min_length=50,
+    do_sample=False
+)[0]['summary_text']
+
+print('DESCRIPTIVE SUMMARY (Topic-focused):\n', descriptive_summary_1)
+print('\nINFORMATIVE SUMMARY (Content-focused):\n', informative_summary_1)
+
+reference_summary_1 = ' '.join(nltk.sent_tokenize(safe_input_text_1)[::2])
+
+rouge_1 = evaluate.load('rouge')
+rouge_scores_1 = rouge_1.compute(
+    predictions=[informative_summary_1],
+    references=[reference_summary_1]
+)
+
+bleu_1 = evaluate.load('bleu')
+bleu_scores_1 = bleu_1.compute(
+    predictions=[informative_summary_1],
+    references=[[reference_summary_1]]
+)
+
+rouge1_1 = round(rouge_scores_1['rouge1'], 4)
+rougeL_1 = round(rouge_scores_1['rougeL'], 4)
+bleu_score_1 = round(bleu_scores_1['bleu'], 4)
+
+print('ROUGE-1:', rouge1_1)
+print('ROUGE-L:', rougeL_1)
+print('BLEU   :', bleu_score_1)
+
+result_1 = {
+    'model': 'sshleifer/distilbart-cnn-12-6',
+    'corpus': corpus_label_1,
+    'ROUGE-1': rouge1_1,
+    'ROUGE-L': rougeL_1,
+    'BLEU': bleu_score_1
+}
+
+# -----------------------------
+# RUN 2: Model 2 + Corpus 2
+# -----------------------------
+raw_text_2 = ' '.join(brown.words(categories='news')[:10000])
+corpus_label_2 = 'Brown: news'
+
+input_text_2 = raw_text_2
+print('Selected corpus:', corpus_label_2)
+print('Input length:', len(input_text_2))
+
+summarizer_2 = pipeline('summarization', model='facebook/bart-large-cnn')
+
+safe_input_text_2 = summarizer_2.tokenizer.decode(
+    summarizer_2.tokenizer.encode(input_text_2, truncation=True, max_length=1000),
+    skip_special_tokens=True
+)
+
+descriptive_summary_raw_2 = summarizer_2(
+    f"This text is about: {safe_input_text_2}",
+    max_length=30,
+    min_length=10,
+    do_sample=False
+)[0]['summary_text']
+descriptive_summary_2 = f"This document provides an overview of {descriptive_summary_raw_2.strip()}."
+
+informative_summary_2 = summarizer_2(
+    safe_input_text_2,
+    max_length=250,
+    min_length=50,
+    do_sample=False
+)[0]['summary_text']
+
+print('DESCRIPTIVE SUMMARY (Topic-focused):\n', descriptive_summary_2)
+print('\nINFORMATIVE SUMMARY (Content-focused):\n', informative_summary_2)
+
+reference_summary_2 = ' '.join(nltk.sent_tokenize(safe_input_text_2)[::2])
+
+rouge_2 = evaluate.load('rouge')
+rouge_scores_2 = rouge_2.compute(
+    predictions=[informative_summary_2],
+    references=[reference_summary_2]
+)
+
+bleu_2 = evaluate.load('bleu')
+bleu_scores_2 = bleu_2.compute(
+    predictions=[informative_summary_2],
+    references=[[reference_summary_2]]
+)
+
+rouge1_2 = round(rouge_scores_2['rouge1'], 4)
+rougeL_2 = round(rouge_scores_2['rougeL'], 4)
+bleu_score_2 = round(bleu_scores_2['bleu'], 4)
+
+print('ROUGE-1:', rouge1_2)
+print('ROUGE-L:', rougeL_2)
+print('BLEU   :', bleu_score_2)
+
+result_2 = {
+    'model': 'facebook/bart-large-cnn',
+    'corpus': corpus_label_2,
+    'ROUGE-1': rouge1_2,
+    'ROUGE-L': rougeL_2,
+    'BLEU': bleu_score_2
+}
+
+# -----------------------------
+# RUN 3: Model 3 + Corpus 3
+# -----------------------------
+file_id_3 = '2021-Biden.txt'
+raw_text_3 = inaugural.raw(file_id_3)
+corpus_label_3 = f'Inaugural: {file_id_3}'
+
+input_text_3 = raw_text_3
+print('Selected corpus:', corpus_label_3)
+print('Input length:', len(input_text_3))
+
+summarizer_3 = pipeline('summarization', model='sshleifer/distilbart-xsum-12-6')
+
+safe_input_text_3 = summarizer_3.tokenizer.decode(
+    summarizer_3.tokenizer.encode(input_text_3, truncation=True, max_length=1000),
+    skip_special_tokens=True
+)
+
+descriptive_summary_raw_3 = summarizer_3(
+    f"This text is about: {safe_input_text_3}",
+    max_length=30,
+    min_length=10,
+    do_sample=False
+)[0]['summary_text']
+descriptive_summary_3 = f"This document provides an overview of {descriptive_summary_raw_3.strip()}."
+
+informative_summary_3 = summarizer_3(
+    safe_input_text_3,
+    max_length=250,
+    min_length=50,
+    do_sample=False
+)[0]['summary_text']
+
+print('DESCRIPTIVE SUMMARY (Topic-focused):\n', descriptive_summary_3)
+print('\nINFORMATIVE SUMMARY (Content-focused):\n', informative_summary_3)
+
+reference_summary_3 = ' '.join(nltk.sent_tokenize(safe_input_text_3)[::2])
+
+rouge_3 = evaluate.load('rouge')
+rouge_scores_3 = rouge_3.compute(
+    predictions=[informative_summary_3],
+    references=[reference_summary_3]
+)
+
+bleu_3 = evaluate.load('bleu')
+bleu_scores_3 = bleu_3.compute(
+    predictions=[informative_summary_3],
+    references=[[reference_summary_3]]
+)
+
+rouge1_3 = round(rouge_scores_3['rouge1'], 4)
+rougeL_3 = round(rouge_scores_3['rougeL'], 4)
+bleu_score_3 = round(bleu_scores_3['bleu'], 4)
+
+print('ROUGE-1:', rouge1_3)
+print('ROUGE-L:', rougeL_3)
+print('BLEU   :', bleu_score_3)
+
+result_3 = {
+    'model': 'sshleifer/distilbart-xsum-12-6',
+    'corpus': corpus_label_3,
+    'ROUGE-1': rouge1_3,
+    'ROUGE-L': rougeL_3,
+    'BLEU': bleu_score_3
+}
+
+import matplotlib.pyplot as plt
+
+comparison_df = pd.DataFrame([result_1, result_2, result_3])
+
+# ROUGE-1 Graph
+fig, ax = plt.subplots(figsize=(8, 5))
+models = comparison_df['model'].str.split('/').str[-1]
+values = comparison_df['ROUGE-1']
+ax.bar(range(len(models)), values, color='#1f77b4', alpha=0.7)
+ax.set_xticks(range(len(models)))
+ax.set_xticklabels(models, rotation=45, ha='right')
+ax.set_ylim(0, 1)
+ax.set_ylabel('Score')
+ax.set_title('ROUGE-1 Performance')
+plt.tight_layout()
+plt.show()
+
+# ROUGE-L Graph
+fig, ax = plt.subplots(figsize=(8, 5))
+models = comparison_df['model'].str.split('/').str[-1]
+values = comparison_df['ROUGE-L']
+ax.bar(range(len(models)), values, color='#ff7f0e', alpha=0.7)
+ax.set_xticks(range(len(models)))
+ax.set_xticklabels(models, rotation=45, ha='right')
+ax.set_ylim(0, 1)
+ax.set_ylabel('Score')
+ax.set_title('ROUGE-L Performance')
+plt.tight_layout()
+plt.show()
+
+# BLEU Graph
+fig, ax = plt.subplots(figsize=(8, 5))
+models = comparison_df['model'].str.split('/').str[-1]
+values = comparison_df['BLEU']
+ax.bar(range(len(models)), values, color='#2ca02c', alpha=0.7)
+ax.set_xticks(range(len(models)))
+ax.set_xticklabels(models, rotation=45, ha='right')
+ax.set_ylim(0, 1)
+ax.set_ylabel('Score')
+ax.set_title('BLEU Performance')
+plt.tight_layout()
+plt.show()
+
+# ===== Assignment 6 =====
+# Assignment 6
+# Required packages
+pip install -U "numpy<2.0" "scipy<1.13" "ml-dtypes>=0.5.4" spacy gensim nltk transformers torch evaluate rouge_score pandas matplotlib seaborn datasets tqdm
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from datasets import load_dataset
+from tqdm.auto import tqdm
+import evaluate
+
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print("Using device:", device)
+
+# Language code mapping per model family
+NLLB_LANGS = {
+    "en": "eng_Latn",
+    "hi": "hin_Deva",
+    "mr": "mar_Deva",
+    "es": "spa_Latn",
+}
+
+M2M_LANGS = {
+    "en": "en",
+    "hi": "hi",
+    "mr": "mr",
+    "es": "es",
+}
+
+# ---------- Data Type 1: Multilingual Corpus (OPUS-100 parallel corpora) ----------
+# Using three corpus slices and combining them into a 4-language table.
+corpus_sample_size = 12
+
+en_hi = load_dataset("opus100", "en-hi", split=f"test[:{corpus_sample_size}]")
+en_mr = load_dataset("opus100", "en-mr", split=f"test[:{corpus_sample_size}]")
+en_es = load_dataset("opus100", "en-es", split=f"test[:{corpus_sample_size}]")
+
+corpus_df = pd.DataFrame(
+    {
+        "en": [x["en"] for x in en_hi["translation"]],
+        "hi": [x["hi"] for x in en_hi["translation"]],
+        "mr": [x["mr"] for x in en_mr["translation"]],
+        "es": [x["es"] for x in en_es["translation"]],
+    }
+)
+
+# ---------- Data Type 2: Custom/Domain Data ----------
+custom_rows = [
+    {
+        "en": "Please submit your assignment before Friday.",
+        "hi": "कृपया शुक्रवार से पहले अपना असाइनमेंट जमा करें।",
+        "mr": "कृपया शुक्रवारीपूर्वी तुमचे असाइनमेंट जमा करा.",
+        "es": "Por favor, envía tu tarea antes del viernes.",
+    },
+    {
+        "en": "The train is delayed due to heavy rain.",
+        "hi": "भारी बारिश के कारण ट्रेन देर से है।",
+        "mr": "मुसळधार पावसामुळे रेल्वेला उशीर झाला आहे.",
+        "es": "El tren está retrasado debido a la fuerte lluvia.",
+    },
+    {
+        "en": "Can you explain this concept with an example?",
+        "hi": "क्या आप इस अवधारणा को उदाहरण के साथ समझा सकते हैं?",
+        "mr": "तुम्ही ही संकल्पना उदाहरणासह समजावू शकता का?",
+        "es": "¿Puedes explicar este concepto con un ejemplo?",
+    },
+    {
+        "en": "I need to book a doctor appointment for tomorrow.",
+        "hi": "मुझे कल के लिए डॉक्टर की अपॉइंटमेंट बुक करनी है।",
+        "mr": "मला उद्यासाठी डॉक्टरांची अपॉइंटमेंट बुक करायची आहे.",
+        "es": "Necesito reservar una cita con el médico para mañana.",
+    },
+    {
+        "en": "Learning multiple languages improves cognitive flexibility.",
+        "hi": "कई भाषाएँ सीखना संज्ञानात्मक लचीलापन बढ़ाता है।",
+        "mr": "अनेक भाषा शिकल्याने संज्ञानात्मक लवचिकता वाढते.",
+        "es": "Aprender varios idiomas mejora la flexibilidad cognitiva.",
+    },
+]
+custom_df = pd.DataFrame(custom_rows)
+
+print("Corpus data shape:", corpus_df.shape)
+print("Custom data shape:", custom_df.shape)
+corpus_df.head(3)
+
+# Define the 2 models from 2 families
+MODEL_CONFIG = {
+    "NLLB": "facebook/nllb-200-distilled-600M",
+    "M2M100": "facebook/m2m100_418M",
+}
+
+models = {}
+for family, model_name in MODEL_CONFIG.items():
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
+    model.eval()
+    models[family] = {"tokenizer": tokenizer, "model": model, "name": model_name}
+
+print("Loaded models:")
+for k, v in models.items():
+    print(f"- {k}: {v['name']}")
+
+def translate_batch(model_family, texts, src_key, tgt_key, max_new_tokens=128):
+    """Translate a list of texts using selected model family."""
+    bundle = models[model_family]
+    tokenizer = bundle["tokenizer"]
+    model = bundle["model"]
+
+    if model_family == "NLLB":
+        src_lang = NLLB_LANGS[src_key]
+        tgt_lang = NLLB_LANGS[tgt_key]
+        tokenizer.src_lang = src_lang
+        encoded = tokenizer(texts, return_tensors="pt", padding=True, truncation=True).to(device)
+        forced_bos = tokenizer.convert_tokens_to_ids(tgt_lang)
+        with torch.no_grad():
+            generated = model.generate(**encoded, forced_bos_token_id=forced_bos, max_new_tokens=max_new_tokens)
+    else:  # M2M100
+        src_lang = M2M_LANGS[src_key]
+        tgt_lang = M2M_LANGS[tgt_key]
+        tokenizer.src_lang = src_lang
+        encoded = tokenizer(texts, return_tensors="pt", padding=True, truncation=True).to(device)
+        forced_bos = tokenizer.get_lang_id(tgt_lang)
+        with torch.no_grad():
+            generated = model.generate(**encoded, forced_bos_token_id=forced_bos, max_new_tokens=max_new_tokens)
+
+    return tokenizer.batch_decode(generated, skip_special_tokens=True)
+
+
+def evaluate_set(df, data_type, language_pairs):
+    bleu_metric = evaluate.load("sacrebleu")
+    chrf_metric = evaluate.load("chrf")
+    ter_metric = evaluate.load("ter")
+
+    rows = []
+    for src, tgt in language_pairs:
+        src_texts = df[src].astype(str).tolist()
+        ref_texts = df[tgt].astype(str).tolist()
+        wrapped_refs = [[ref] for ref in ref_texts]
+
+        for model_family in models.keys():
+            hyps = translate_batch(
+                model_family=model_family,
+                texts=src_texts,
+                src_key=src,
+                tgt_key=tgt,
+            )
+
+            bleu_score = bleu_metric.compute(predictions=hyps, references=wrapped_refs)["score"]
+            chrf_score = chrf_metric.compute(predictions=hyps, references=wrapped_refs)["score"]
+            ter_score = ter_metric.compute(predictions=hyps, references=wrapped_refs)["score"]
+
+            rows.append(
+                {
+                    "data_type": data_type,
+                    "model_family": model_family,
+                    "pair": f"{src}->{tgt}",
+                    "BLEU": bleu_score,
+                    "chrF": chrf_score,
+                    "TER": ter_score,
+                }
+            )
+
+    return pd.DataFrame(rows)
+
+# Language pairs covering the 4-language blend
+language_pairs = [
+    ("en", "hi"),
+    ("en", "mr"),
+    ("en", "es"),
+    ("hi", "en"),
+    ("mr", "en"),
+    ("es", "en"),
+]
+
+corpus_results = evaluate_set(corpus_df, "corpus_opus100", language_pairs)
+custom_results = evaluate_set(custom_df, "custom_domain", language_pairs)
+
+results_df = pd.concat([corpus_results, custom_results], ignore_index=True)
+results_df.sort_values(["data_type", "pair", "model_family"]).reset_index(drop=True)
+
+# Comparison summary (higher BLEU/chrF is better, lower TER is better)
+summary = (
+    results_df.groupby(["data_type", "model_family"], as_index=False)
+    .agg({"BLEU": "mean", "chrF": "mean", "TER": "mean"})
+    .round(2)
+)
+print(summary)
+
+# Plot 3: TER Score Comparison
+plt.figure(figsize=(8, 5))
+sns.barplot(data=summary, x="data_type", y="TER", hue="model_family")
+plt.title("Mean TER Score by Data Type", fontsize=14, fontweight="bold")
+plt.xlabel("Data Type", fontsize=12)
+plt.ylabel("TER (Lower is Better)", fontsize=12)
+plt.xticks(rotation=15)
+plt.tight_layout()
+plt.show()
+
+# Plot 2: chrF Score Comparison
+plt.figure(figsize=(8, 5))
+sns.barplot(data=summary, x="data_type", y="chrF", hue="model_family")
+plt.title("Mean chrF Score by Data Type", fontsize=14, fontweight="bold")
+plt.xlabel("Data Type", fontsize=12)
+plt.ylabel("chrF", fontsize=12)
+plt.xticks(rotation=15)
+plt.tight_layout()
+plt.show()
+
+# Plot 1: BLEU Score Comparison
+plt.figure(figsize=(8, 5))
+sns.barplot(data=summary, x="data_type", y="BLEU", hue="model_family")
+plt.title("Mean BLEU Score by Data Type", fontsize=14, fontweight="bold")
+plt.xlabel("Data Type", fontsize=12)
+plt.ylabel("BLEU", fontsize=12)
+plt.xticks(rotation=15)
+plt.tight_layout()
+plt.show()
+
+# Display translated sentences for all language pairs and data types
+print("=" * 120)
+print("TRANSLATED SENTENCES COMPARISON")
+print("=" * 120)
+
+for data_name, data_df in [("CORPUS (OPUS-100)", corpus_df), ("CUSTOM DOMAIN DATA", custom_df)]:
+    print(f"\n\n{'='*120}")
+    print(f"DATA TYPE: {data_name}")
+    print(f"{'='*120}\n")
+    
+    for src, tgt in language_pairs:
+        print(f"\n{'-'*120}")
+        print(f"Language Pair: {src.upper()} → {tgt.upper()}")
+        print(f"{'-'*120}\n")
+        
+        src_texts = data_df[src].astype(str).tolist()
+        ref_texts = data_df[tgt].astype(str).tolist()
+        
+        # Generate translations for this pair
+        nllb_hyps = translate_batch("NLLB", src_texts, src, tgt)
+        m2m_hyps = translate_batch("M2M100", src_texts, src, tgt)
+        
+        # Display first 3 examples per pair
+        for idx in range(min(3, len(src_texts))):
+            print(f"Example {idx+1}:")
+            print(f"  SOURCE ({src.upper()}):      {src_texts[idx][:80]}")
+            print(f"  REFERENCE ({tgt.upper()}):   {ref_texts[idx][:80]}")
+            print(f"  NLLB:                    {nllb_hyps[idx][:80]}")
+            print(f"  M2M100:                  {m2m_hyps[idx][:80]}")
+            print()
