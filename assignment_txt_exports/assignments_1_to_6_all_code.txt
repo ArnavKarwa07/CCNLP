@@ -1964,3 +1964,142 @@ for data_name, data_df in [("CORPUS (OPUS-100)", corpus_df), ("CUSTOM DOMAIN DAT
             print(f"  NLLB:                    {nllb_hyps[idx][:80]}")
             print(f"  M2M100:                  {m2m_hyps[idx][:80]}")
             print()
+
+#Sentiment Analysis Only (Torch-Free)
+
+import re
+import nltk
+from nltk.sentiment import SentimentIntensityAnalyzer
+
+nltk.download("vader_lexicon", quiet=True)
+
+MODEL_REGISTRY = {
+    "vader": "nltk.sentiment.SentimentIntensityAnalyzer",
+    "lexicon_rule": "custom_lexicon_rule_model",
+}
+
+POS_WORDS = {
+    "good", "great", "excellent", "happy", "enjoyed", "reliable", "smooth",
+    "awesome", "amazing", "love", "positive", "satisfied", "fantastic", "nice",
+}
+NEG_WORDS = {
+    "bad", "terrible", "awful", "disappointed", "delay", "delays", "failure",
+    "failures", "frustrating", "hate", "negative", "poor", "worst", "problem",
+}
+
+
+def tokenize_words(text):
+    return re.findall(r"[a-zA-Z']+", text.lower())
+
+
+def load_sentiment_models():
+    """Load torch-free sentiment models once and return a model dictionary."""
+    models = {
+        "vader": SentimentIntensityAnalyzer(),
+        "lexicon_rule": {"pos_words": POS_WORDS, "neg_words": NEG_WORDS},
+    }
+    for key, model_name in MODEL_REGISTRY.items():
+        print(f"Loaded model: {key} -> {model_name}")
+    return models
+
+
+def compound_to_label(score):
+    if score >= 0.05:
+        return "POSITIVE"
+    if score <= -0.05:
+        return "NEGATIVE"
+    return "NEUTRAL"
+
+
+def lexicon_rule_predict(text, lexicon_model):
+    words = tokenize_words(text)
+    pos_hits = sum(1 for w in words if w in lexicon_model["pos_words"])
+    neg_hits = sum(1 for w in words if w in lexicon_model["neg_words"])
+    total_hits = pos_hits + neg_hits
+
+    if total_hits == 0:
+        return "NEUTRAL", 0.5
+
+    raw_score = (pos_hits - neg_hits) / total_hits
+    label = compound_to_label(raw_score)
+    confidence = min(0.99, 0.5 + abs(raw_score) / 2)
+    return label, confidence
+
+
+def analyze_sentiment(text, sentiment_models):
+    """Run both models and return model-wise outputs with a final voting label."""
+    model_results = {}
+    votes = {"POSITIVE": 0, "NEGATIVE": 0, "NEUTRAL": 0}
+
+    vader_scores = sentiment_models["vader"].polarity_scores(text)
+    vader_label = compound_to_label(vader_scores["compound"])
+    vader_conf = abs(float(vader_scores["compound"]))
+    model_results["vader"] = {
+        "raw_label": vader_label,
+        "mapped_label": vader_label,
+        "score": vader_conf,
+    }
+    votes[vader_label] += 1
+
+    lex_label, lex_score = lexicon_rule_predict(text, sentiment_models["lexicon_rule"])
+    model_results["lexicon_rule"] = {
+        "raw_label": lex_label,
+        "mapped_label": lex_label,
+        "score": float(lex_score),
+    }
+    votes[lex_label] += 1
+
+    final_label = max(votes, key=votes.get)
+    avg_conf = sum(v["score"] for v in model_results.values()) / len(model_results)
+
+    return {
+        "text": text,
+        "final_label": final_label,
+        "avg_confidence": avg_conf,
+        "votes": votes,
+        "by_model": model_results,
+    }
+
+
+def print_analysis(result):
+    """Print a clean analysis summary."""
+    print("Input:", result["text"])
+    print("Final sentiment:", result["final_label"])
+    print("Average confidence:", f"{result['avg_confidence']:.2%}")
+    print("Votes:", result["votes"])
+    print("Per-model output:", result["by_model"])
+    print("-" * 70)
+
+
+def run_examples(sentiment_models):
+    """Run a few test examples for quick verification."""
+    examples = [
+        "I really enjoyed this product. It feels smooth and reliable.",
+        "I feel disappointed by the delays and repeated failures in the system.",
+        "The product works as expected; nothing exceptional, nothing terrible.",
+    ]
+
+    for text in examples:
+        result = analyze_sentiment(text, sentiment_models)
+        print_analysis(result)
+
+
+def process_user_text(user_text, sentiment_models):
+    """Analyze any user text and print sentiment details."""
+    result = analyze_sentiment(user_text, sentiment_models)
+    print_analysis(result)
+    return result
+
+
+if __name__ == "__main__":
+    print("Preparing sentiment analysis environment...")
+    sentiment_models = load_sentiment_models()
+    print("All sentiment models loaded successfully.")
+    print("=" * 70)
+
+    print("Running sample examples...")
+    run_examples(sentiment_models)
+
+    user_text = "Today felt balanced. Some parts were good, some were frustrating."
+    print("Running user-text demo...")
+    process_user_text(user_text, sentiment_models)
